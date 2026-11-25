@@ -284,31 +284,45 @@ $('#body').innerHTML=BODIES.map((b,i)=>`<option value="${i}">${b[0]}</option>`).
 $('#aspect').innerHTML=ASPECTS.map((a,i)=>`<option value="${i}">${a[0]}</option>`).join('');
 $('#body').value=S.body;$('#aspect').value=S.aspect;
 $('#fl').innerHTML=FLS.map(f=>`<button data-f="${f}">${f}</button>`).join('');
-function setFl(f,quiet){S.fl=f;$$('#fl button').forEach(b=>{const on=+b.dataset.f===f;b.classList.toggle('on',on);if(on)b.scrollIntoView({inline:'center',block:'nearest'})});save();if(!quiet)buzz();drawFinder()}
+function setFl(f,quiet){S.fl=f;$$('#fl button').forEach(b=>{const on=+b.dataset.f===f;b.classList.toggle('on',on);if(on)b.scrollIntoView({inline:'center',block:'nearest'})});save();if(!quiet)buzz();drawFinder();syncCam()}
 $('#fl').onclick=e=>{const b=e.target.closest('button');if(b)setFl(+b.dataset.f)};
 const step=d=>{const i=FLS.indexOf(S.fl);setFl(FLS[Math.max(0,Math.min(FLS.length-1,(i<0?9:i)+d))])};
 $('#flPrev').onclick=()=>step(-1);$('#flNext').onclick=()=>step(1);
 addEventListener('keydown',e=>{if(!$('#finder').classList.contains('show')||/INPUT|SELECT/.test(e.target.tagName))return;if(e.key==='ArrowLeft')step(-1);if(e.key==='ArrowRight')step(1)});
-$('#body').onchange=e=>{S.body=+e.target.value;save();drawFinder()};
+$('#body').onchange=e=>{S.body=+e.target.value;save();drawFinder();syncCam()};
 $('#aspect').onchange=e=>{S.aspect=+e.target.value;if(ASPECTS[S.aspect][0].includes('縦'))S.portrait=true;save();syncBtns();drawFinder()};
 $('#orientBtn').onclick=()=>{S.portrait=!S.portrait;save();syncBtns();drawFinder()};
 $('#sunBtn').onclick=()=>{S.showSun=!S.showSun;save();syncBtns();drawFinder()};
 function syncBtns(){$('#orientBtn').textContent=S.portrait?'縦位置':'横位置';$('#orientBtn').classList.toggle('on',S.portrait);$('#sunBtn').classList.toggle('on',S.showSun);$('#sunBtn').textContent=S.showSun?'太陽 表示':'太陽 なし'}
 const msg=t=>$('#msg').textContent=t;
 function badge(){
-  const src=!vid.hidden?'カメラ':!pic.hidden?'写真':'画像なし';
+  const src=!vid.hidden?(curCam==='ultra'?'カメラ（超広角）':'カメラ（1×）'):!pic.hidden?'写真':'画像なし';
   const hd=sensor?`方位：センサー${S.offset?`（補正${S.offset>0?'+':''}${Math.round(S.offset)}°）`:''}`:'方位：手動';
   $('#badge').textContent=`${src}・${hd}`;
 }
+let cams={wide:null,ultra:null},curCam=null,camOn=false,baseF=24;
+async function openCam(kind){
+  const id=cams[kind];
+  const v=id?{deviceId:{exact:id},width:{ideal:1920}}:{facingMode:'environment',width:{ideal:1920}};
+  const st=await navigator.mediaDevices.getUserMedia({video:v,audio:false});
+  if(vid.srcObject)vid.srcObject.getTracks().forEach(t=>t.stop());
+  vid.srcObject=st;curCam=kind;baseF=kind==='ultra'?13:24;
+  vid.hidden=false;pic.hidden=true;$('#empty').hidden=true;vid.onloadedmetadata=drawFinder;await vid.play();
+  msg(kind==='ultra'?'超広角カメラを使っています（13mm相当として計算）。':'カメラを使っています（1×＝24mm相当として計算）。');drawFinder();
+}
+async function findCams(){
+  try{const ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
+    for(const d of ds){const l=d.label||'';if(/ultra ?wide|超広角/i.test(l))cams.ultra=d.deviceId;else if(/^(back camera|背面カメラ)$/i.test(l.trim()))cams.wide=d.deviceId}
+  }catch(e){}
+}
+function wantCam(){return (S.fl*BODIES[S.body][1]<24&&cams.ultra)?'ultra':'wide'}
+async function syncCam(){if(!camOn)return;const k=wantCam();if(k!==curCam){try{await openCam(k)}catch(e){}}}
 $('#camBtn').onclick=async()=>{
-  try{
-    const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920}},audio:false});
-    vid.srcObject=st;vid.hidden=false;pic.hidden=true;$('#empty').hidden=true;vid.onloadedmetadata=drawFinder;await vid.play();
-    msg('カメラを使っています（1×のレンズ＝24mm相当として計算）。');drawFinder();
-  }catch(e){msg('この画面ではカメラが使えません。「写真」で、iPhoneの1×で撮った写真を読み込んでください。');$('#picBtn').classList.add('on')}
+  try{await openCam('wide');camOn=true;await findCams();await syncCam()}
+  catch(e){msg('この画面ではカメラが使えません。「写真」で、iPhoneの1×で撮った写真を読み込んでください。');$('#picBtn').classList.add('on')}
 };
 $('#picBtn').onclick=()=>$('#picIn').click();
-$('#picIn').onchange=e=>{const f=e.target.files[0];if(!f)return;pic.src=URL.createObjectURL(f);pic.hidden=false;vid.hidden=true;$('#empty').hidden=true;$('#picBtn').classList.remove('on');pic.onload=drawFinder};
+$('#picIn').onchange=e=>{const f=e.target.files[0];if(!f)return;camOn=false;if(vid.srcObject)vid.srcObject.getTracks().forEach(t=>t.stop());pic.src=URL.createObjectURL(f);pic.hidden=false;vid.hidden=true;$('#empty').hidden=true;$('#picBtn').classList.remove('on');pic.onload=drawFinder};
 function onOrient(e){
   let h=null;
   if(typeof e.webkitCompassHeading==='number')h=e.webkitCompassHeading;
@@ -352,7 +366,7 @@ function drawFinder(){
   let sw=4032,sh=3024;
   if(!vid.hidden&&vid.videoWidth){sw=vid.videoWidth;sh=vid.videoHeight}else if(!pic.hidden&&pic.naturalWidth){sw=pic.naturalWidth;sh=pic.naturalHeight}
   if((W>H)!==(sw>sh))[sw,sh]=[sh,sw];
-  const long=Math.max(sw,sh),fpx=(long/2)/0.75,sc=Math.max(W/sw,H/sh);
+  const long=Math.max(sw,sh),fpx=(long/2)/(18/((!vid.hidden&&camOn)?baseF:24)),sc=Math.max(W/sw,H/sh);
   const crop=BODIES[S.body][1],fe=S.fl*crop,ratio=ASPECTS[S.aspect][1];
   const L=2*fpx*sc*18/fe,Sh=L/ratio;let fw=S.portrait?Sh:L,fh=S.portrait?L:Sh;
   const fit=Math.min(0.9*W/fw,0.86*H/fh),zoom=Math.max(1,fit);
