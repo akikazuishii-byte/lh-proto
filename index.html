@@ -39,7 +39,7 @@ nav.tabs button{flex:1;border:0;background:none;color:var(--sub);font-size:15px}
 nav.tabs button[aria-selected=true]{color:var(--key);font-weight:700;background:#1a2a29}
 /* ファインダー */
 .fgrid{display:grid;gap:12px}
-.vf{position:relative;width:100%;height:min(62vh,720px);background:#000;border-radius:12px;overflow:hidden}
+.vf{position:relative;width:100%;height:min(62vh,720px);touch-action:none;background:#000;border-radius:12px;overflow:hidden}
 .vf video,.vf img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform-origin:50% 50%}
 .vf svg{position:absolute;inset:0;width:100%;height:100%}
 .vf .empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--sub);text-align:center;padding:24px;font-size:14px}
@@ -96,57 +96,70 @@ td:first-child,th:first-child{text-align:left}
   .ngrid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
   .ngrid .wide{grid-column:1/-1}
 }
+
+/* ファインダーは全画面 */
+body.fmode main{padding:0;max-width:none}
+body.fmode nav.tabs{display:none}
+#finder.show{position:fixed;inset:0;padding:env(safe-area-inset-top,0px) 0 0;background:#000;z-index:30;display:flex;flex-direction:column}
+#finder .vf{flex:1;height:auto;border-radius:0}
+.fbar{display:flex;align-items:center;gap:6px;padding:6px 10px calc(6px + var(--safeB));background:#1a1a1a}
+.fbar button{min-width:44px;padding:0 8px}
+.fbinfo{flex:1;font-size:13px;color:var(--sub);line-height:1.3;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.flnow{font-size:22px;font-weight:700;min-width:84px!important;font-variant-numeric:tabular-nums;background:none!important;border:0!important}
+.fbar .shot{width:56px;height:56px;border-radius:50%;border:4px solid #f2f2f2;background:var(--key)}
+.hud{position:absolute;left:8px;top:8px;background:rgba(0,0,0,.55);border-radius:8px;padding:2px 10px;font-size:14px;font-variant-numeric:tabular-nums}
+.hud .word{font-size:20px;font-weight:800;color:var(--sun)}
+.flpop{position:absolute;left:0;right:0;bottom:8px;padding:6px 10px;background:rgba(0,0,0,.6)}
+.fsheet{position:fixed;left:0;right:0;bottom:0;z-index:50;max-height:80vh;overflow:auto;background:#1a1a1a;border-top:1px solid var(--line);border-radius:14px 14px 0 0;padding:12px 14px calc(14px + var(--safeB))}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
 <main>
 <section id="finder" class="show">
-  <div class="fgrid">
-    <div>
-      <div class="vf" id="vf">
-        <video id="vid" playsinline muted hidden></video>
-        <img id="pic" alt="" hidden>
-        <div class="empty" id="empty">「カメラ」か「写真」を押してください。<br>写真はiPhoneの1×（24mm相当）で撮ったものを使うと画角が合います。</div>
-        <svg id="ov"></svg>
-        <div class="badge" id="badge"></div>
-      </div>
-      <div class="light"><span class="word" id="lword">—</span><span class="pos" id="lpos"></span></div>
-      <div class="small" id="lsmall"></div>
+  <div class="vf" id="vf">
+    <video id="vid" playsinline muted hidden></video>
+    <img id="pic" alt="" hidden>
+    <div class="empty" id="empty">左下の「≡」から「カメラ」か「写真」を選んでください。</div>
+    <svg id="ov"></svg>
+    <div class="hud"><span class="word" id="lword">—</span> <span id="lpos"></span></div>
+    <div class="badge" id="badge"></div>
+    <div class="fl flpop" id="fl" hidden></div>
+  </div>
+  <div class="fbar">
+    <button id="menuBtn" aria-label="設定">≡</button>
+    <div class="fbinfo" id="fbinfo"></div>
+    <button id="flPrev" aria-label="短い焦点距離へ">‹</button>
+    <button id="flNow" class="flnow" aria-label="焦点距離の一覧"></button>
+    <button id="flNext" aria-label="長い焦点距離へ">›</button>
+    <button id="shotBtn" class="shot" aria-label="記録する"></button>
+  </div>
+  <div class="fsheet" id="fsheet" hidden>
+    <div class="row"><button id="toSun">太陽タブへ</button><button id="toNotes">ノートタブへ</button><button id="closeMenu" class="on">閉じる</button></div>
+    <div class="row">
+      <button id="camBtn">カメラ</button>
+      <button id="picBtn">写真</button>
+      <button id="orientBtn">縦位置</button>
+      <button id="sunBtn" class="on">太陽</button>
     </div>
-    <div>
-      <div class="flwrap">
-        <button id="flPrev" aria-label="短い焦点距離へ">‹</button>
-        <div class="fl" id="fl"></div>
-        <button id="flNext" aria-label="長い焦点距離へ">›</button>
-      </div>
-      <div class="shot"><button id="shotBtn" aria-label="記録する">記録</button></div>
-      <div class="row">
-        <button id="camBtn">カメラ</button>
-        <button id="picBtn">写真</button>
-        <button id="orientBtn">縦位置</button>
-        <button id="sunBtn" class="on">太陽</button>
-      </div>
-      <input type="file" id="picIn" accept="image/*" hidden>
-      <div class="row">
-        <div><label for="body">ボディ</label><select id="body"></select></div>
-        <div><label for="aspect">縦横比</label><select id="aspect"></select></div>
-      </div>
-      <div class="card">
-        <label for="tm">時刻 <b id="tmLabel"></b></label>
-        <input type="range" id="tm" min="240" max="1200" step="5">
-        <div class="row">
-          <button id="nowBtn">いま</button>
-          <button id="sensBtn">方位センサー</button>
-          <button id="calBtn">太陽で補正</button>
-        </div>
-        <div class="row" id="manual">
-          <div><label for="hd">カメラの向き <b id="hdLabel"></b></label><input type="range" id="hd" min="0" max="359"></div>
-          <div><label for="pt">上下の角度 <b id="ptLabel"></b></label><input type="range" id="pt" min="-45" max="70"></div>
-        </div>
-        <p class="note" id="msg">カメラや方位センサーが使えない画面では、写真と手動の向きで確かめられます。</p>
-      </div>
+    <input type="file" id="picIn" accept="image/*" hidden>
+    <div class="row">
+      <div><label for="body">ボディ</label><select id="body"></select></div>
+      <div><label for="aspect">縦横比</label><select id="aspect"></select></div>
     </div>
+    <label for="tm">時刻 <b id="tmLabel"></b>（ファインダーを左右になぞっても変わります）</label>
+    <input type="range" id="tm" min="240" max="1200" step="5">
+    <div class="row">
+      <button id="nowBtn">いま</button>
+      <button id="sensBtn">方位センサー</button>
+      <button id="calBtn">太陽で補正</button>
+    </div>
+    <div class="row" id="manual">
+      <div><label for="hd">カメラの向き <b id="hdLabel"></b></label><input type="range" id="hd" min="0" max="359"></div>
+      <div><label for="pt">上下の角度 <b id="ptLabel"></b></label><input type="range" id="pt" min="-45" max="70"></div>
+    </div>
+    <p class="small" id="lsmall"></p>
+    <p class="note" id="msg">カメラや方位センサーが使えない画面では、写真と手動の向きで確かめられます。</p>
   </div>
 </section>
 
@@ -271,8 +284,10 @@ function dayEvents(ds){
 /* ---------- タブ ---------- */
 function showTab(name){
   $$('nav.tabs button').forEach(x=>x.setAttribute('aria-selected',x.dataset.tab===name));
-  $$('section').forEach(s=>s.classList.toggle('show',s.id===name));
+  $$('section').forEach(s=>s.classList.toggle('show',s.id===name));document.body.classList.toggle('fmode',name==='finder');
   try{history.replaceState(null,'','#'+name)}catch(e){location.hash=name}
+  if(name!=='finder'&&!document.querySelector('#backFinder')){const b=document.createElement('button');b.id='backFinder';b.textContent='ファインダーに戻る';b.style.cssText='position:fixed;right:12px;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:45';b.className='on';b.onclick=()=>showTab('finder');document.body.appendChild(b)}
+  const bf=document.querySelector('#backFinder');if(bf)bf.hidden=name==='finder';
   if(name==='notes'){drawList()}
   refresh();window.scrollTo(0,0);
 }
@@ -284,8 +299,11 @@ $('#body').innerHTML=BODIES.map((b,i)=>`<option value="${i}">${b[0]}</option>`).
 $('#aspect').innerHTML=ASPECTS.map((a,i)=>`<option value="${i}">${a[0]}</option>`).join('');
 $('#body').value=S.body;$('#aspect').value=S.aspect;
 $('#fl').innerHTML=FLS.map(f=>`<button data-f="${f}">${f}</button>`).join('');
-function setFl(f,quiet){S.fl=f;$$('#fl button').forEach(b=>{const on=+b.dataset.f===f;b.classList.toggle('on',on);if(on)b.scrollIntoView({inline:'center',block:'nearest'})});save();if(!quiet)buzz();drawFinder();syncCam()}
-$('#fl').onclick=e=>{const b=e.target.closest('button');if(b)setFl(+b.dataset.f)};
+function setFl(f,quiet){S.fl=f;$('#flNow').textContent=f+'mm';$$('#fl button').forEach(b=>{const on=+b.dataset.f===f;b.classList.toggle('on',on);if(on)b.scrollIntoView({inline:'center',block:'nearest'})});save();if(!quiet)buzz();drawFinder();syncCam()}
+$('#fl').onclick=e=>{const b=e.target.closest('button');if(b){setFl(+b.dataset.f);$('#fl').hidden=true}};
+$('#flNow').onclick=()=>{$('#fl').hidden=!$('#fl').hidden;if(!$('#fl').hidden)setFl(S.fl,true)};
+$('#menuBtn').onclick=()=>{$('#fsheet').hidden=false};$('#closeMenu').onclick=()=>{$('#fsheet').hidden=true};
+$('#toSun').onclick=()=>{$('#fsheet').hidden=true;showTab('sun')};$('#toNotes').onclick=()=>{$('#fsheet').hidden=true;showTab('notes')};
 const step=d=>{const i=FLS.indexOf(S.fl);setFl(FLS[Math.max(0,Math.min(FLS.length-1,(i<0?9:i)+d))])};
 $('#flPrev').onclick=()=>step(-1);$('#flNext').onclick=()=>step(1);
 addEventListener('keydown',e=>{if(!$('#finder').classList.contains('show')||/INPUT|SELECT/.test(e.target.tagName))return;if(e.key==='ArrowLeft')step(-1);if(e.key==='ArrowRight')step(1)});
@@ -303,10 +321,10 @@ function badge(){
 let cams={wide:null,ultra:null},curCam=null,camOn=false,baseF=24;
 async function openCam(kind){
   const id=cams[kind];
-  const v=id?{deviceId:{exact:id},width:{ideal:1920}}:{facingMode:'environment',width:{ideal:1920}};
+  const v=id?{deviceId:{exact:id},width:{ideal:1920},focusMode:'continuous'}:{facingMode:'environment',width:{ideal:1920},focusMode:'continuous'};
   const st=await navigator.mediaDevices.getUserMedia({video:v,audio:false});
   if(vid.srcObject)vid.srcObject.getTracks().forEach(t=>t.stop());
-  vid.srcObject=st;curCam=kind;baseF=kind==='ultra'?13:24;
+  vid.srcObject=st;curCam=kind;try{const t=st.getVideoTracks()[0],c=t.getCapabilities&&t.getCapabilities();if(c&&c.focusMode&&c.focusMode.includes('continuous'))await t.applyConstraints({advanced:[{focusMode:'continuous'}]})}catch(e){}baseF=kind==='ultra'?13:24;
   vid.hidden=false;pic.hidden=true;$('#empty').hidden=true;vid.onloadedmetadata=drawFinder;await vid.play();
   msg(kind==='ultra'?'超広角カメラを使っています（13mm相当として計算）。':'カメラを使っています（1×＝24mm相当として計算）。');drawFinder();
 }
@@ -341,7 +359,7 @@ $('#sensBtn').onclick=async()=>{
     setTimeout(()=>{if(!sensor)msg('方位センサーが使えません。スライダーで向きを合わせてください。')},2000);
   }catch(e){msg('方位センサーが使えません。スライダーで向きを合わせてください。')}
 };
-$('#calBtn').onclick=()=>{calib=true;$('#calBtn').classList.add('on');msg('画面の中の本物の太陽をタップしてください。方位のずれを直します。')};
+$('#calBtn').onclick=()=>{calib=true;$('#fsheet').hidden=true;$('#calBtn').classList.add('on');msg('画面の中の本物の太陽をタップしてください。方位のずれを直します。')};
 $('#hd').oninput=e=>{S.head=+e.target.value;save();drawFinder()};
 $('#pt').oninput=e=>{S.pitch=+e.target.value;save();drawFinder()};
 $('#tm').oninput=e=>{S.min=+e.target.value;refresh()};
@@ -405,14 +423,17 @@ function drawFinder(){
     word=lightWord(sp.az,sp.alt);
   }
   ov.setAttribute('viewBox',`0 0 ${W} ${H}`);ov.innerHTML=o;
-  $('#lword').textContent=word;
-  $('#lpos').textContent=`${hm(S.min)}　太陽 ${dirName(sp.az)} ${Math.round(sp.az)}°・高さ ${Math.round(sp.alt)}°`;
+  $('#lword').textContent=word;$('#fbinfo').innerHTML=`${esc(BODIES[S.body][0].split('（')[0])}｜${esc(ASPECTS[S.aspect][0].split('（')[0])}｜${S.portrait?'縦':'横'}<br>${crop!==1?`換算${Math.round(fe)}mm`:''}`;
+  $('#lpos').textContent=`${hm(S.min)}・太陽 ${dirName(sp.az)} 高さ${Math.round(sp.alt)}°`;
   $('#lsmall').textContent=`カメラ ${dirName(S.head)} ${Math.round(S.head)}°・上下 ${Math.round(S.pitch)}°　（感度・SS・絞り・色温度はアプリ版で）`;
   $('#hd').value=Math.round(S.head);$('#pt').value=Math.round(S.pitch);
   $('#hdLabel').textContent=`${dirName(S.head)} ${Math.round(S.head)}°`;$('#ptLabel').textContent=`${Math.round(S.pitch)}°`;
   badge();
 }
-vf.addEventListener('click',e=>{
+let dragT=null;
+vf.addEventListener('pointerdown',e=>{if(e.target.closest('.flpop'))return;dragT={x:e.clientX,min:S.min,moved:false}});
+vf.addEventListener('pointermove',e=>{if(!dragT||!S.showSun)return;const dx=e.clientX-dragT.x;if(Math.abs(dx)>8)dragT.moved=true;if(dragT.moved){S.min=Math.min(1200,Math.max(240,Math.round((dragT.min+dx*1.5)/5)*5));refresh()}});
+vf.addEventListener('pointerup',e=>{const d=dragT;dragT=null;if(!d||d.moved)return;$('#fl').hidden=true;
   if(!calib||!geo)return;calib=false;$('#calBtn').classList.remove('on');
   const r=vf.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
   const sp=sunPos(atMin(S.date,S.min),S.lat,S.lng);
@@ -421,6 +442,7 @@ vf.addEventListener('click',e=>{
   if(sensor&&rawHead!=null)S.offset=((trueHead-rawHead+540)%360)-180;else{S.head=trueHead;S.pitch=sp.alt-ay}
   save();buzz();msg(`方位を合わせました（太陽 ${Math.round(sp.az)}°）。`);drawFinder();
 });
+vf.addEventListener('pointercancel',()=>dragT=null);
 new ResizeObserver(()=>drawFinder()).observe(vf);
 
 /* 記録：枠の中の画像とデータを1枚に */
@@ -652,7 +674,7 @@ $('#copyBtn').onclick=async e=>{try{await navigator.clipboard.writeText(sheetTex
 
 /* ---------- 全体 ---------- */
 function refresh(){$('#tm').value=S.min;$('#tmLabel').textContent=`${S.date.slice(5).replace('-','/')} ${hm(S.min)}`;drawFinder();drawSun()}
-syncBtns();setFl(S.fl,true);drawList();refresh();
+document.body.classList.add('fmode');syncBtns();setFl(S.fl,true);drawList();refresh();
 const h0=location.hash.slice(1);if(['sun','notes'].includes(h0))showTab(h0);
 }
 </script>
