@@ -442,7 +442,7 @@ function onOrient(e){
   if(e.alpha==null||e.beta==null)return;
   const R=rotMat(e.alpha*rad,e.beta*rad,e.gamma*rad);
   const fx=-R[0][2],fy=-R[1][2],fz=-R[2][2],azRaw=(Math.atan2(fx,fy)/rad+360)%360;
-  if(typeof e.webkitCompassHeading==='number'&&e.webkitCompassAccuracy!==-1){const want=wrap(e.webkitCompassHeading-azRaw);headOff=Rm?headOff+0.15*wrap(want-headOff):want}
+  if(typeof e.webkitCompassHeading==='number'&&e.webkitCompassAccuracy!==-1){const want=wrap(e.webkitCompassHeading-azRaw);const cp=Math.asin(Math.max(-1,Math.min(1,-R[2][2])))/rad;if(!Rm)headOff=want;else if(Math.abs(cp)<50)headOff+=0.03*wrap(want-headOff)}
   else headOff=0;
   Rm=R;if(!sensor){sensor=true;syncSet()}
   S.head=(azRaw+headOff+S.offset+360)%360;S.pitch=Math.asin(Math.max(-1,Math.min(1,fz)))/rad;
@@ -470,8 +470,9 @@ function project(az,alt){
   if(!(sensor&&Rm))return projectFlat(az,alt);
   const a=(az-headOff-S.offset)*rad,h=alt*rad,e=[Math.sin(a)*Math.cos(h),Math.cos(a)*Math.cos(h),Math.sin(h)];
   const d=[0,1,2].map(i=>Rm[0][i]*e[0]+Rm[1][i]*e[1]+Rm[2][i]*e[2]);
-  const ang=((screen.orientation&&screen.orientation.angle)??window.orientation??0)*rad;
-  return {x:d[0]*Math.cos(ang)+d[1]*Math.sin(ang),y:-d[0]*Math.sin(ang)+d[1]*Math.cos(ang),z:-d[2]};
+  /* 画面の回転（反時計回りが正）。横持ちでは端末の軸と画面の軸が入れ替わる */
+  const ang=(typeof window.orientation==='number'?window.orientation:((screen.orientation&&screen.orientation.angle)||0))*rad;
+  return {x:d[0]*Math.cos(ang)-d[1]*Math.sin(ang),y:d[0]*Math.sin(ang)+d[1]*Math.cos(ang),z:-d[2]};
 }
 function lightWord(az,alt){if(alt<-0.27)return '日没後';const d=Math.abs(wrap(az-S.head));return d<30?'逆光':d<70?'半逆光':d<120?'サイド光':'順光'}
 
