@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ロケハンノート">
+<meta name="theme-color" content="#121212">
+<meta name="robots" content="noindex,nofollow">
+<title>ロケハンノート 試作</title>
+<style>
+/* VOICE: 無口で手際のいいベテランのアシスタント。頼れる・速い・静か・正確。
+   IDEA: 暗いファインダーと、白い方眼のフィールドノート。
+   PICTURE: ファインダー画面（枠・太陽の軌道）と、俯瞰図＋立体図の紙。
+   COLOUR and TYPE: BASE #121212、KEY #2EC4B6（押せる・選択中）、SUN #FFB020（太陽だけ）、紙 #FAF8F3、文字 #F2F2F2/#222。システム書体、数字は等幅。
+   LAYOUT: 下にタブ。iPhoneは1列、iPadはファインダーと操作、俯瞰図と立体図を左右に並べる。 */
+:root{color-scheme:dark;--bg:#121212;--panel:#1e1e1e;--line:#333;--ink:#f2f2f2;--sub:#a6a6a6;--key:#2EC4B6;--keyInk:#062b28;--sun:#FFB020;--warn:#FF6B6B;--paper:#FAF8F3;--pkey:#0F7C74;--safeB:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;min-width:0}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;overflow-x:clip;padding-top:env(safe-area-inset-top,0px)}
+button,select,input{font:inherit;color:var(--ink)}
+button{min-height:44px;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:0 12px;cursor:pointer;white-space:nowrap}
+button.on{background:var(--key);border-color:var(--key);color:var(--keyInk);font-weight:700}
+button:disabled{opacity:.4}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--key);outline-offset:2px}
+select,input[type=text],input[type=number],input[type=date]{min-height:44px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:0 10px;font-size:16px;width:100%}
+input[type=range]{width:100%;accent-color:var(--key);height:36px}
+label{display:block;font-size:13px;color:var(--sub)}
+main{max-width:1200px;margin:0 auto;padding-bottom:calc(84px + var(--safeB))}
+section{display:none;padding:10px max(3vw,10px) 24px}
+section.show{display:block}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin:8px 0}
+.row>*{flex:1 1 120px}
+.note{font-size:13px;color:var(--sub);margin:6px 0}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;gap:6px;padding:8px max(3vw,10px) calc(8px + var(--safeB));background:rgba(18,18,18,.96);border-top:1px solid var(--line);backdrop-filter:blur(8px)}
+nav.tabs button{flex:1;border:0;background:none;color:var(--sub);font-size:15px}
+nav.tabs button[aria-selected=true]{color:var(--key);font-weight:700;background:#1a2a29}
+/* ファインダー */
+.fgrid{display:grid;gap:12px}
+.vf{position:relative;width:100%;height:min(62vh,720px);background:#000;border-radius:12px;overflow:hidden}
+.vf video,.vf img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform-origin:50% 50%}
+.vf svg{position:absolute;inset:0;width:100%;height:100%}
+.vf .empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--sub);text-align:center;padding:24px;font-size:14px}
+.badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);border-radius:8px;padding:2px 8px;font-size:12px;color:#ddd}
+.light{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin:6px 2px}
+.light .word{font-size:26px;font-weight:800;color:var(--sun)}
+.light .pos{font-size:15px;color:var(--ink);font-variant-numeric:tabular-nums}
+.small{font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums}
+.fl{display:flex;gap:6px;overflow-x:auto;scroll-snap-type:x mandatory;padding:6px 2px;scrollbar-width:none}
+.fl button{flex:none;scroll-snap-align:center;min-width:56px;font-variant-numeric:tabular-nums}
+.flwrap{display:flex;gap:6px;align-items:center}
+.flwrap>.fl{flex:1}
+.flwrap>button{flex:none;width:44px;padding:0}
+.shot{display:flex;justify-content:center;margin:6px 0}
+.shot button{width:76px;height:76px;border-radius:50%;border:4px solid var(--ink);background:var(--key);color:var(--keyInk);font-weight:800}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0}
+/* 太陽 */
+.big{font-size:22px;font-weight:700;color:var(--sun);font-variant-numeric:tabular-nums}
+.info{display:flex;gap:10px;flex-wrap:wrap;font-size:14px;color:var(--sub)}
+.info b{color:var(--ink)}
+.polar{max-width:520px;aspect-ratio:1;margin:0 auto}
+.polar svg{width:100%;height:100%}
+table{border-collapse:collapse;width:100%;font-size:14px}
+td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+td:first-child,th:first-child{text-align:left}
+.scroll{overflow-x:auto}
+/* ノート */
+.ngrid{display:grid;gap:10px}
+.paper{background:var(--paper);color:#222;border-radius:10px;padding:6px}
+.paper svg{display:block;width:100%;height:auto;touch-action:none;user-select:none;-webkit-user-select:none}
+.ptitle{display:flex;justify-content:space-between;font-size:13px;color:#555;padding:2px 4px}
+.palette{display:flex;gap:6px;overflow-x:auto;padding:6px 0}
+.palette button{flex:none;font-size:14px}
+.tool{display:flex;gap:8px;flex-wrap:wrap}
+.tool button{flex:1 1 auto}
+.list .item{display:flex;gap:8px;align-items:center}
+.list .item>div{flex:1}
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.shots figure{margin:0;background:#000;border-radius:8px;overflow:hidden}
+.shots img{width:100%;display:block}
+.shots figcaption{font-size:12px;color:var(--sub);padding:4px 6px}
+.lights td{text-align:left;white-space:normal}
+#tplBox button{white-space:normal;line-height:1.3;padding:8px 12px;flex:1 1 160px}
+.guide{border-color:var(--key)}
+.guide ol{margin:6px 0 8px 1.2em;padding:0}
+.modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.9);display:none;overflow:auto;padding:16px 16px calc(16px + var(--safeB))}
+.modal.show{display:block}
+.modal img{width:100%;max-width:900px;display:block;margin:10px auto;border-radius:6px;background:#fff}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--ink)}
+.chk input{width:22px;height:22px;accent-color:var(--key)}
+@media (min-width:900px){
+  .fgrid{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);align-items:start}
+  .vf{height:min(78vh,820px)}
+  .ngrid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+  .ngrid .wide{grid-column:1/-1}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<main>
+<section id="finder" class="show">
+  <div class="fgrid">
+    <div>
+      <div class="vf" id="vf">
+        <video id="vid" playsinline muted hidden></video>
+        <img id="pic" alt="" hidden>
+        <div class="empty" id="empty">「カメラ」か「写真」を押してください。<br>写真はiPhoneの1×（24mm相当）で撮ったものを使うと画角が合います。</div>
+        <svg id="ov"></svg>
+        <div class="badge" id="badge"></div>
+      </div>
+      <div class="light"><span class="word" id="lword">—</span><span class="pos" id="lpos"></span></div>
+      <div class="small" id="lsmall"></div>
+    </div>
+    <div>
+      <div class="flwrap">
+        <button id="flPrev" aria-label="短い焦点距離へ">‹</button>
+        <div class="fl" id="fl"></div>
+        <button id="flNext" aria-label="長い焦点距離へ">›</button>
+      </div>
+      <div class="shot"><button id="shotBtn" aria-label="記録する">記録</button></div>
+      <div class="row">
+        <button id="camBtn">カメラ</button>
+        <button id="picBtn">写真</button>
+        <button id="orientBtn">縦位置</button>
+        <button id="sunBtn" class="on">太陽</button>
+      </div>
+      <input type="file" id="picIn" accept="image/*" hidden>
+      <div class="row">
+        <div><label for="body">ボディ</label><select id="body"></select></div>
+        <div><label for="aspect">縦横比</label><select id="aspect"></select></div>
+      </div>
+      <div class="card">
+        <label for="tm">時刻 <b id="tmLabel"></b></label>
+        <input type="range" id="tm" min="240" max="1200" step="5">
+        <div class="row">
+          <button id="nowBtn">いま</button>
+          <button id="sensBtn">方位センサー</button>
+          <button id="calBtn">太陽で補正</button>
+        </div>
+        <div class="row" id="manual">
+          <div><label for="hd">カメラの向き <b id="hdLabel"></b></label><input type="range" id="hd" min="0" max="359"></div>
+          <div><label for="pt">上下の角度 <b id="ptLabel"></b></label><input type="range" id="pt" min="-45" max="70"></div>
+        </div>
+        <p class="note" id="msg">カメラや方位センサーが使えない画面では、写真と手動の向きで確かめられます。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="sun">
+  <div class="row">
+    <div><label for="dt">日付</label><input type="date" id="dt"></div>
+    <div><label for="lat">緯度</label><input type="number" id="lat" step="0.0001"></div>
+    <div><label for="lng">経度</label><input type="number" id="lng" step="0.0001"></div>
+  </div>
+  <div class="row"><button id="gpsBtn">現在地</button><button id="sengokuBtn">千石</button></div>
+  <div class="card"><div class="big" id="sunNow"></div><div class="info" id="sunTimes"></div></div>
+  <div class="polar"><svg id="polar" viewBox="-120 -120 240 240" role="img" aria-label="太陽の軌道"></svg></div>
+  <p class="note">上が北。中心が真上、外の円が地平線。青緑が選んだ日、点線は夏至と冬至。時刻はファインダーのスライダーと同じ。</p>
+  <div class="card scroll"><table id="sunTable"></table></div>
+</section>
+
+<section id="notes">
+  <div id="noteList">
+    <div class="card guide" id="guide" hidden>
+      <b>撮影ノートの使い方</b>
+      <ol><li>「サンプル」を開いて、図の中の機材をドラッグしてみる</li><li>俯瞰図で位置、立体図で高さを動かすと、もう片方も変わる</li><li>「ノートを見る」で1枚の画像になる。長押しで保存・共有</li></ol>
+      <button id="guideOk" class="on">わかった</button>
+    </div>
+    <div class="row"><button id="newNote" class="on">新しいノート</button></div>
+    <div class="list" id="listBox"></div>
+    <div id="tplBox"></div>
+    <h3 id="shotsH" hidden>ロケハンの記録</h3>
+    <div class="shots" id="shots"></div>
+  </div>
+  <div id="noteEdit" hidden>
+    <div class="tool">
+      <button id="backList">‹ 一覧</button>
+      <button id="undoBtn">取り消す</button>
+      <button id="redoBtn">やり直す</button>
+      <button id="sheetBtn" class="on">ノートを見る</button>
+    </div>
+    <div class="palette" id="palette"></div>
+    <div class="ngrid">
+      <div class="paper"><div class="ptitle"><span>俯瞰図（上から）</span><span>ドラッグで位置</span></div><svg id="top"></svg></div>
+      <div class="paper"><div class="ptitle"><span>立体図（横から）</span><span>ドラッグで高さ・前後</span></div><svg id="side"></svg></div>
+      <div class="card" id="props"></div>
+      <div class="card scroll"><table class="lights" id="lightTable"></table></div>
+      <div class="card wide">
+        <div class="row"><div><label>タイトル</label><input type="text" data-n="title"></div><div><label>日付</label><input type="date" data-n="date"></div><div><label>場所・スタジオ</label><input type="text" data-n="place"></div></div>
+        <div class="row"><div><label>ボディ</label><input type="text" data-n="body"></div><div><label>レンズ</label><input type="text" data-n="lens"></div><div><label>ISO</label><input type="text" data-n="iso" inputmode="numeric"></div><div><label>絞り F</label><input type="text" data-n="f" inputmode="decimal"></div><div><label>シャッター</label><input type="text" data-n="ss"></div></div>
+        <div class="row"><div><label>部屋の幅 cm</label><input type="number" data-n="rw"></div><div><label>部屋の奥行 cm</label><input type="number" data-n="rd"></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" aria-selected="true" data-tab="finder">ファインダー</button>
+  <button role="tab" aria-selected="false" data-tab="sun">太陽</button>
+  <button role="tab" aria-selected="false" data-tab="notes">ノート</button>
+</nav>
+
+<div class="modal" id="sheet">
+  <div class="row"><button id="closeSheet">閉じる</button><button id="copyBtn">テキストをコピー</button></div>
+  <label class="chk"><input type="checkbox" id="markChk" checked> 右下に小さく「ロケハンノート」を入れる</label>
+  <p class="note">画像を長押しすると、写真に保存・LINEなどで共有できます。</p>
+  <img id="sheetImg" alt="撮影ノート">
+</div>
+<div class="modal" id="shotView">
+  <div class="row"><button id="closeShot">閉じる</button><button id="delShot">この記録を削除</button></div>
+  <p class="note">画像を長押しすると保存・共有できます。</p>
+  <img id="shotImg" alt="ロケハンの記録">
+</div>
+
+<script>
+{
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const rad=Math.PI/180;
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}};
+const buzz=()=>{try{navigator.vibrate&&navigator.vibrate(12)}catch(e){}};
+const C={key:'#2EC4B6',sun:'#FFB020',pkey:'#0F7C74',psun:'#C77700'};
+
+/* ---------- 状態 ---------- */
+const FLS=[13,14,16,18,20,24,28,35,40,50,70,85,105,135,200,300,400,600];
+const BODIES=[['フルサイズ',1],['APS-C（1.5×）',1.5],['APS-C キヤノン（1.6×）',1.6],['マイクロフォーサーズ（2×）',2],['中判 44×33（0.79×）',0.79]];
+const ASPECTS=[['3:2',1.5],['4:3（6×4.5）',4/3],['1:1（6×6）',1],['5:4（4×5）',1.25],['7:6（6×7）',7/6],['4:5 インスタ縦',1.25],['16:9',16/9]];
+const pad=n=>String(n).padStart(2,'0');
+const today=new Date();
+const S=Object.assign({fl:50,body:0,aspect:0,portrait:true,showSun:true,head:180,pitch:5,offset:0,lat:35.7296,lng:139.7437},store.get('lk_state',{}));
+S.date=`${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+S.min=Math.min(1200,Math.max(240,today.getHours()*60+today.getMinutes()));
+let sensor=false,rawHead=null,calib=false,geo=null;
+const save=()=>store.set('lk_state',{fl:S.fl,body:S.body,aspect:S.aspect,portrait:S.portrait,showSun:S.showSun,head:S.head,pitch:S.pitch,offset:S.offset,lat:S.lat,lng:S.lng});
+
+/* ---------- 太陽の計算 ---------- */
+function sunPos(date,lat,lng){
+  const d=date.valueOf()/864e5-0.5+2440588-2451545,e=rad*23.4397,phi=rad*lat;
+  const M=rad*(357.5291+0.98560028*d);
+  const L=M+rad*(1.9148*Math.sin(M)+0.02*Math.sin(2*M)+0.0003*Math.sin(3*M))+rad*102.9372+Math.PI;
+  const dec=Math.asin(Math.sin(e)*Math.sin(L)),ra=Math.atan2(Math.sin(L)*Math.cos(e),Math.cos(L));
+  const H=rad*(280.16+360.9856235*d)-rad*-lng-ra;
+  const az=Math.atan2(Math.sin(H),Math.cos(H)*Math.sin(phi)-Math.tan(dec)*Math.cos(phi));
+  let h=Math.asin(Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H))/rad;
+  if(h>-1)h+=1.02/Math.tan((h+10.3/(h+5.11))*rad)/60;
+  return {az:(az/rad+540)%360,alt:h};
+}
+const atMin=(ds,min)=>{const [y,m,d]=ds.split('-').map(Number);return new Date(y,m-1,d,0,min)};
+const hm=m=>`${Math.floor(m/60)}:${pad(Math.round(m%60))}`;
+const DIR=['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西'];
+const dirName=a=>DIR[Math.round(((a%360)+360)%360/22.5)%16];
+function dayEvents(ds){
+  let prev=null,rise=null,set=null,noon=0,max=-99,g=null,b=null;const gold=[],blue=[];
+  for(let m=0;m<=1440;m++){
+    const a=sunPos(atMin(ds,m),S.lat,S.lng).alt;
+    if(prev!==null){if(prev<-0.27&&a>=-0.27)rise=m;if(prev>=-0.27&&a<-0.27)set=m}
+    if(a>max){max=a;noon=m}
+    const ig=a>-4&&a<6,ib=a>-6&&a<=-4;
+    if(ig&&g===null)g=m;if(!ig&&g!==null){gold.push([g,m]);g=null}
+    if(ib&&b===null)b=m;if(!ib&&b!==null){blue.push([b,m]);b=null}
+    prev=a;
+  }
+  return {rise,set,noon,max,gold,blue};
+}
+
+/* ---------- タブ ---------- */
+function showTab(name){
+  $$('nav.tabs button').forEach(x=>x.setAttribute('aria-selected',x.dataset.tab===name));
+  $$('section').forEach(s=>s.classList.toggle('show',s.id===name));
+  try{history.replaceState(null,'','#'+name)}catch(e){location.hash=name}
+  if(name==='notes'){drawList()}
+  refresh();window.scrollTo(0,0);
+}
+$$('nav.tabs button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+
+/* ---------- ファインダー ---------- */
+const vf=$('#vf'),ov=$('#ov'),vid=$('#vid'),pic=$('#pic');
+$('#body').innerHTML=BODIES.map((b,i)=>`<option value="${i}">${b[0]}</option>`).join('');
+$('#aspect').innerHTML=ASPECTS.map((a,i)=>`<option value="${i}">${a[0]}</option>`).join('');
+$('#body').value=S.body;$('#aspect').value=S.aspect;
+$('#fl').innerHTML=FLS.map(f=>`<button data-f="${f}">${f}</button>`).join('');
+function setFl(f,quiet){S.fl=f;$$('#fl button').forEach(b=>{const on=+b.dataset.f===f;b.classList.toggle('on',on);if(on)b.scrollIntoView({inline:'center',block:'nearest'})});save();if(!quiet)buzz();drawFinder()}
+$('#fl').onclick=e=>{const b=e.target.closest('button');if(b)setFl(+b.dataset.f)};
+const step=d=>{const i=FLS.indexOf(S.fl);setFl(FLS[Math.max(0,Math.min(FLS.length-1,(i<0?9:i)+d))])};
+$('#flPrev').onclick=()=>step(-1);$('#flNext').onclick=()=>step(1);
+addEventListener('keydown',e=>{if(!$('#finder').classList.contains('show')||/INPUT|SELECT/.test(e.target.tagName))return;if(e.key==='ArrowLeft')step(-1);if(e.key==='ArrowRight')step(1)});
+$('#body').onchange=e=>{S.body=+e.target.value;save();drawFinder()};
+$('#aspect').onchange=e=>{S.aspect=+e.target.value;if(ASPECTS[S.aspect][0].includes('縦'))S.portrait=true;save();syncBtns();drawFinder()};
+$('#orientBtn').onclick=()=>{S.portrait=!S.portrait;save();syncBtns();drawFinder()};
+$('#sunBtn').onclick=()=>{S.showSun=!S.showSun;save();syncBtns();drawFinder()};
+function syncBtns(){$('#orientBtn').textContent=S.portrait?'縦位置':'横位置';$('#orientBtn').classList.toggle('on',S.portrait);$('#sunBtn').classList.toggle('on',S.showSun);$('#sunBtn').textContent=S.showSun?'太陽 表示':'太陽 なし'}
+const msg=t=>$('#msg').textContent=t;
+function badge(){
+  const src=!vid.hidden?'カメラ':!pic.hidden?'写真':'画像なし';
+  const hd=sensor?`方位：センサー${S.offset?`（補正${S.offset>0?'+':''}${Math.round(S.offset)}°）`:''}`:'方位：手動';
+  $('#badge').textContent=`${src}・${hd}`;
+}
+$('#camBtn').onclick=async()=>{
+  try{
+    const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920}},audio:false});
+    vid.srcObject=st;vid.hidden=false;pic.hidden=true;$('#empty').hidden=true;vid.onloadedmetadata=drawFinder;await vid.play();
+    msg('カメラを使っています（1×のレンズ＝24mm相当として計算）。');drawFinder();
+  }catch(e){msg('この画面ではカメラが使えません。「写真」で、iPhoneの1×で撮った写真を読み込んでください。');$('#picBtn').classList.add('on')}
+};
+$('#picBtn').onclick=()=>$('#picIn').click();
+$('#picIn').onchange=e=>{const f=e.target.files[0];if(!f)return;pic.src=URL.createObjectURL(f);pic.hidden=false;vid.hidden=true;$('#empty').hidden=true;$('#picBtn').classList.remove('on');pic.onload=drawFinder};
+function onOrient(e){
+  let h=null;
+  if(typeof e.webkitCompassHeading==='number')h=e.webkitCompassHeading;
+  else if(e.absolute&&e.alpha!=null){const a=e.alpha*rad,b=e.beta*rad,g=e.gamma*rad;
+    const dx=-(Math.cos(a)*Math.sin(g)+Math.sin(a)*Math.sin(b)*Math.cos(g)),dy=-(Math.sin(a)*Math.sin(g)-Math.cos(a)*Math.sin(b)*Math.cos(g));
+    h=(Math.atan2(dx,dy)/rad+360)%360}
+  if(h===null||e.beta==null)return;
+  sensor=true;rawHead=h;S.head=(h+S.offset+360)%360;
+  S.pitch=Math.asin(-Math.cos(e.beta*rad)*Math.cos(e.gamma*rad))/rad;
+  $('#manual').hidden=true;$('#sensBtn').classList.add('on');drawFinder();
+}
+$('#sensBtn').onclick=async()=>{
+  try{
+    if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==='function'){const r=await DeviceOrientationEvent.requestPermission();if(r!=='granted')throw 0}
+    addEventListener('deviceorientationabsolute',onOrient);addEventListener('deviceorientation',onOrient);
+    setTimeout(()=>{if(!sensor)msg('方位センサーが使えません。スライダーで向きを合わせてください。')},2000);
+  }catch(e){msg('方位センサーが使えません。スライダーで向きを合わせてください。')}
+};
+$('#calBtn').onclick=()=>{calib=true;$('#calBtn').classList.add('on');msg('画面の中の本物の太陽をタップしてください。方位のずれを直します。')};
+$('#hd').oninput=e=>{S.head=+e.target.value;save();drawFinder()};
+$('#pt').oninput=e=>{S.pitch=+e.target.value;save();drawFinder()};
+$('#tm').oninput=e=>{S.min=+e.target.value;refresh()};
+$('#nowBtn').onclick=()=>{const n=new Date();S.date=`${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`;S.min=Math.min(1200,Math.max(240,n.getHours()*60+n.getMinutes()));refresh()};
+
+function project(az,alt){
+  const A=S.head*rad,P=S.pitch*rad,a=az*rad,h=alt*rad;
+  const s=[Math.sin(a)*Math.cos(h),Math.cos(a)*Math.cos(h),Math.sin(h)];
+  const f=[Math.sin(A)*Math.cos(P),Math.cos(A)*Math.cos(P),Math.sin(P)];
+  const r=[Math.cos(A),-Math.sin(A),0];
+  const u=[r[1]*f[2]-r[2]*f[1],r[2]*f[0]-r[0]*f[2],r[0]*f[1]-r[1]*f[0]];
+  const dot=(p,q)=>p[0]*q[0]+p[1]*q[1]+p[2]*q[2];
+  return {x:dot(s,r),y:dot(s,u),z:dot(s,f)};
+}
+function lightWord(az,alt){
+  if(alt<-0.27)return '日没後';
+  const d=Math.abs(((az-S.head+540)%360)-180);
+  return d<30?'逆光':d<70?'半逆光':d<120?'サイド光':'順光';
+}
+function drawFinder(){
+  const W=vf.clientWidth,H=vf.clientHeight;if(!W)return;
+  let sw=4032,sh=3024;
+  if(!vid.hidden&&vid.videoWidth){sw=vid.videoWidth;sh=vid.videoHeight}else if(!pic.hidden&&pic.naturalWidth){sw=pic.naturalWidth;sh=pic.naturalHeight}
+  if((W>H)!==(sw>sh))[sw,sh]=[sh,sw];
+  const long=Math.max(sw,sh),fpx=(long/2)/0.75,sc=Math.max(W/sw,H/sh);
+  const crop=BODIES[S.body][1],fe=S.fl*crop,ratio=ASPECTS[S.aspect][1];
+  const L=2*fpx*sc*18/fe,Sh=L/ratio;let fw=S.portrait?Sh:L,fh=S.portrait?L:Sh;
+  const fit=Math.min(0.9*W/fw,0.86*H/fh),zoom=Math.max(1,fit);
+  fw*=zoom;fh*=zoom;const Fd=fpx*sc*zoom,cx=W/2,cy=H/2;
+  geo={W,H,Fd,cx,cy,fw,fh,zoom,sw,sh,sc};
+  [vid,pic].forEach(m=>m.style.transform=`scale(${zoom})`);
+  const x0=cx-fw/2,y0=cy-fh/2;let o='';
+  o+=`<path fill="rgba(0,0,0,.55)" fill-rule="evenodd" d="M0 0H${W}V${H}H0Z M${x0} ${y0}h${fw}v${fh}h${-fw}Z"/>`;
+  o+=`<rect x="${x0}" y="${y0}" width="${fw}" height="${fh}" fill="none" stroke="#fff" stroke-width="1.5"/>`;
+  o+=`<g stroke="rgba(255,255,255,.3)">${[1,2].map(i=>`<line x1="${x0+fw*i/3}" y1="${y0}" x2="${x0+fw*i/3}" y2="${y0+fh}"/><line x1="${x0}" y1="${y0+fh*i/3}" x2="${x0+fw}" y2="${y0+fh*i/3}"/>`).join('')}</g>`;
+  o+=`<text x="${x0+8}" y="${y0+22}" fill="#fff" font-size="15" font-weight="700">${S.fl}mm${crop!==1?`（換算${Math.round(fe)}mm）`:''}  ${esc(ASPECTS[S.aspect][0].split('（')[0])}</text>`;
+  if(fit<1||fe<13)o+=`<text x="${cx}" y="${H-14}" fill="${'#FF6B6B'}" font-size="14" text-anchor="middle">iPhoneの画角より広いので、枠が画面からはみ出しています</text>`;
+  const sp=sunPos(atMin(S.date,S.min),S.lat,S.lng);let word='—';
+  if(S.showSun){
+    let seg='',hours='';
+    for(let m=240;m<=1200;m+=10){
+      const p=sunPos(atMin(S.date,m),S.lat,S.lng);if(p.alt<-2){seg+='|';continue}
+      const q=project(p.az,p.alt);if(q.z<0.2){seg+='|';continue}
+      const X=cx+Fd*q.x/q.z,Y=cy-Fd*q.y/q.z;if(Math.abs(X)>W*4||Math.abs(Y)>H*4){seg+='|';continue}
+      seg+=`${X.toFixed(1)},${Y.toFixed(1)} `;
+      if(m%60===0)hours+=`<circle cx="${X}" cy="${Y}" r="3.5" fill="${C.sun}"/><text x="${X+6}" y="${Y-6}" fill="${C.sun}" font-size="12">${m/60}時</text>`;
+    }
+    o+=seg.split('|').filter(t=>t.trim().split(' ').length>1).map(t=>`<polyline points="${t.trim()}" fill="none" stroke="${C.sun}" stroke-width="2" stroke-dasharray="6 5" opacity=".9"/>`).join('')+hours;
+    const q=project(sp.az,sp.alt),dAz=((sp.az-S.head+540)%360)-180;let inFrame=false;
+    if(q.z>0.05){const X=cx+Fd*q.x/q.z,Y=cy-Fd*q.y/q.z;inFrame=Math.abs(X-cx)<=fw/2&&Math.abs(Y-cy)<=fh/2;
+      if(X>-40&&X<W+40&&Y>-40&&Y<H+40&&sp.alt>-1)o+=`<circle cx="${X}" cy="${Y}" r="16" fill="${C.sun}" opacity=".35"/><circle cx="${X}" cy="${Y}" r="9" fill="${C.sun}"/>`}
+    if(!inFrame&&sp.alt>-1){
+      let dx=q.x,dy=q.y;const n=Math.hypot(dx,dy);if(n<1e-3){dx=0;dy=-1}else{dx/=n;dy/=n}
+      if(q.z<=0.05&&n<0.2){dx=0;dy=-1}
+      const t=Math.min((fw/2-26)/Math.max(Math.abs(dx),1e-6),(fh/2-26)/Math.max(Math.abs(dy),1e-6));
+      const ax=cx+dx*t,ay=cy-dy*t,ang=Math.atan2(-dy,dx)/rad;
+      o+=`<g transform="translate(${ax} ${ay}) rotate(${ang})"><circle r="17" fill="rgba(0,0,0,.6)"/><path d="M-8 -9L10 0L-8 9Z" fill="${C.sun}"/></g>`;
+      const lx=Math.min(Math.max(ax,90),W-90),ly=Math.min(Math.max(ay+(ay<cy?36:-26),18),H-10);
+      o+=`<text x="${lx}" y="${ly}" fill="${C.sun}" font-size="13" text-anchor="middle" font-weight="700" paint-order="stroke" stroke="rgba(0,0,0,.6)" stroke-width="3">${Math.abs(dAz)>150?'うしろ ':dAz>0?'右へ':'左へ'}${Math.round(Math.abs(dAz))}°・高さ${Math.round(sp.alt)}°</text>`;
+    }
+    word=lightWord(sp.az,sp.alt);
+  }
+  ov.setAttribute('viewBox',`0 0 ${W} ${H}`);ov.innerHTML=o;
+  $('#lword').textContent=word;
+  $('#lpos').textContent=`${hm(S.min)}　太陽 ${dirName(sp.az)} ${Math.round(sp.az)}°・高さ ${Math.round(sp.alt)}°`;
+  $('#lsmall').textContent=`カメラ ${dirName(S.head)} ${Math.round(S.head)}°・上下 ${Math.round(S.pitch)}°　（感度・SS・絞り・色温度はアプリ版で）`;
+  $('#hd').value=Math.round(S.head);$('#pt').value=Math.round(S.pitch);
+  $('#hdLabel').textContent=`${dirName(S.head)} ${Math.round(S.head)}°`;$('#ptLabel').textContent=`${Math.round(S.pitch)}°`;
+  badge();
+}
+vf.addEventListener('click',e=>{
+  if(!calib||!geo)return;calib=false;$('#calBtn').classList.remove('on');
+  const r=vf.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+  const sp=sunPos(atMin(S.date,S.min),S.lat,S.lng);
+  const ax=Math.atan((x-geo.cx)/geo.Fd)/rad,ay=Math.atan((geo.cy-y)/geo.Fd)/rad;
+  const trueHead=(sp.az-ax+360)%360;
+  if(sensor&&rawHead!=null)S.offset=((trueHead-rawHead+540)%360)-180;else{S.head=trueHead;S.pitch=sp.alt-ay}
+  save();buzz();msg(`方位を合わせました（太陽 ${Math.round(sp.az)}°）。`);drawFinder();
+});
+new ResizeObserver(()=>drawFinder()).observe(vf);
+
+/* 記録：枠の中の画像とデータを1枚に */
+let shots=store.get('lk_shots',[]);
+$('#shotBtn').onclick=()=>{
+  if(!geo)return;
+  const src=!vid.hidden&&vid.videoWidth?vid:(!pic.hidden&&pic.naturalWidth?pic:null);
+  const {fw,fh,cx,cy,zoom,sc,W,H}=geo;const outW=fh>fw?600:800,k=outW/fw,outH=Math.round(fh*k);
+  const c=document.createElement('canvas');c.width=outW;c.height=outH+70;const x=c.getContext('2d');
+  x.fillStyle='#121212';x.fillRect(0,0,c.width,c.height);
+  if(src){
+    const nw=src.videoWidth||src.naturalWidth,nh=src.videoHeight||src.naturalHeight;
+    const s=Math.max(W/nw,H/nh)*zoom,dw=nw*s,dh=nh*s,dx=cx-dw/2,dy=cy-dh/2;
+    const fx=cx-fw/2,fy=cy-fh/2;
+    try{x.drawImage(src,(fx-dx)/s,(fy-dy)/s,fw/s,fh/s,0,0,outW,outH)}catch(e){}
+  }
+  const sp=sunPos(atMin(S.date,S.min),S.lat,S.lng);
+  x.fillStyle='#f2f2f2';x.font='bold 22px -apple-system,Hiragino Sans,sans-serif';
+  x.fillText(`${S.fl}mm ${BODIES[S.body][0].split('（')[0]} ${ASPECTS[S.aspect][0].split('（')[0]}  ${lightWord(sp.az,sp.alt)}`,14,outH+30);
+  x.font='16px -apple-system,Hiragino Sans,sans-serif';x.fillStyle='#a6a6a6';
+  x.fillText(`${S.date} ${hm(S.min)}  カメラ ${dirName(S.head)}${Math.round(S.head)}°  太陽 ${dirName(sp.az)}${Math.round(sp.az)}° 高さ${Math.round(sp.alt)}°`,14,outH+56);
+  const url=c.toDataURL('image/jpeg',0.72);
+  shots.unshift({id:Date.now().toString(36),url,cap:`${S.date.slice(5)} ${hm(S.min)}・${S.fl}mm・${lightWord(sp.az,sp.alt)}`});
+  while(shots.length>12)shots.pop();
+  if(!store.set('lk_shots',shots)){shots.length=Math.max(1,shots.length-3);store.set('lk_shots',shots)}
+  buzz();msg(src?'記録しました。「ノート」タブの下に並びます。':'画像なしで記録しました（向きと太陽のデータだけ）。');
+};
+
+/* ---------- 太陽タブ ---------- */
+$('#dt').onchange=e=>{if(e.target.value){S.date=e.target.value;refresh()}};
+$('#lat').onchange=e=>{S.lat=+e.target.value||S.lat;save();refresh()};
+$('#lng').onchange=e=>{S.lng=+e.target.value||S.lng;save();refresh()};
+$('#sengokuBtn').onclick=()=>{S.lat=35.7296;S.lng=139.7437;save();refresh()};
+const sunMsg=t=>{$('#sunTimes').innerHTML=`<span>${esc(t)}</span>`};
+$('#gpsBtn').onclick=()=>{try{navigator.geolocation.getCurrentPosition(p=>{S.lat=+p.coords.latitude.toFixed(4);S.lng=+p.coords.longitude.toFixed(4);save();refresh()},()=>sunMsg('この画面では現在地が使えません。緯度・経度を入れてください。'))}catch(e){sunMsg('この画面では現在地が使えません。')}};
+function polarPt(az,alt){const r=100*(90-Math.max(alt,0))/90;return [r*Math.sin(az*rad),-r*Math.cos(az*rad)]}
+function pathFor(ds,attr){let d='',pen=false;for(let m=0;m<=1440;m+=10){const p=sunPos(atMin(ds,m),S.lat,S.lng);if(p.alt<0){pen=false;continue}const [x,y]=polarPt(p.az,p.alt);d+=(pen?'L':'M')+x.toFixed(1)+' '+y.toFixed(1);pen=true}return `<path d="${d}" ${attr}/>`}
+function drawSun(){
+  $('#dt').value=S.date;$('#lat').value=S.lat;$('#lng').value=S.lng;
+  const y=S.date.slice(0,4);let o='<circle r="100" fill="none" stroke="#555"/><circle r="66.7" fill="none" stroke="#333"/><circle r="33.3" fill="none" stroke="#333"/><line x1="-100" y1="0" x2="100" y2="0" stroke="#333"/><line x1="0" y1="-100" x2="0" y2="100" stroke="#333"/>';
+  [['北',0,-108],['東',109,4],['南',0,116],['西',-109,4]].forEach(([t,x,yy])=>o+=`<text x="${x}" y="${yy}" fill="#aaa" font-size="9" text-anchor="middle">${t}</text>`);
+  o+=pathFor(`${y}-06-21`,'fill="none" stroke="#777" stroke-dasharray="2 3"')+pathFor(`${y}-12-22`,'fill="none" stroke="#777" stroke-dasharray="2 3"');
+  o+=pathFor(S.date,`fill="none" stroke="${C.key}" stroke-width="2"`);
+  for(let h=4;h<=20;h++){const p=sunPos(atMin(S.date,h*60),S.lat,S.lng);if(p.alt<0)continue;const [x,yy]=polarPt(p.az,p.alt);o+=`<circle cx="${x}" cy="${yy}" r="2" fill="${C.key}"/><text x="${x+3}" y="${yy-3}" fill="#ddd" font-size="7">${h}</text>`}
+  const sp=sunPos(atMin(S.date,S.min),S.lat,S.lng);
+  if(sp.alt>0){const [x,yy]=polarPt(sp.az,sp.alt);o+=`<circle cx="${x}" cy="${yy}" r="7" fill="${C.sun}"/>`}
+  $('#polar').innerHTML=o;
+  const ev=dayEvents(S.date),rg=a=>a.map(([s,e])=>`${hm(s)}〜${hm(e)}`).join('、')||'—';
+  $('#sunNow').textContent=`${hm(S.min)}　${dirName(sp.az)} ${Math.round(sp.az)}°・高さ ${Math.round(sp.alt)}°`;
+  $('#sunTimes').innerHTML=`<span>日の出 <b>${ev.rise!=null?hm(ev.rise):'—'}</b></span><span>南中 <b>${hm(ev.noon)}（${Math.round(ev.max)}°）</b></span><span>日の入り <b>${ev.set!=null?hm(ev.set):'—'}</b></span><span>ゴールデンアワー <b>${rg(ev.gold)}</b></span><span>ブルーアワー <b>${rg(ev.blue)}</b></span>`;
+  let t='<tr><th>時刻</th><th>方位</th><th>高さ</th><th>影の長さ</th></tr>';
+  for(let h=5;h<=19;h++){const p=sunPos(atMin(S.date,h*60),S.lat,S.lng);if(p.alt<-1)continue;t+=`<tr><td>${h}:00</td><td>${dirName(p.az)} ${Math.round(p.az)}°</td><td>${Math.round(p.alt)}°</td><td>${p.alt>1?(1/Math.tan(p.alt*rad)).toFixed(1)+'倍':'—'}</td></tr>`}
+  $('#sunTable').innerHTML=t;
+}
+
+/* ---------- 撮影ノート ---------- */
+const T={
+  camera:{n:'カメラ',k:'cam',w:20,h:140},person:{n:'被写体',k:'person',w:50,h:150},backdrop:{n:'背景',k:'back',w:270,h:270},
+  softbox:{n:'ソフトボックス',k:'light',m:'box',w:90,h:170},octa:{n:'オクタボックス',k:'light',m:'box',w:120,h:180},strip:{n:'ストリップ',k:'light',m:'strip',w:30,sw:120,h:150},
+  para:{n:'パラ',k:'light',m:'umb',w:177,h:180},umbrella:{n:'アンブレラ',k:'light',m:'umb',w:100,h:180},beauty:{n:'ビューティーボックス',k:'light',m:'dish',w:55,h:190},
+  strobe:{n:'標準リフレクター',k:'light',m:'refl',w:20,h:170},ring:{n:'リングフラッシュ',k:'light',m:'ring',w:40,h:140},balloon:{n:'バルーン',k:'light',m:'ball',w:80,h:200},
+  led:{n:'LEDパネル',k:'light',m:'box',w:30,h:160},clip:{n:'クリップオン',k:'light',m:'refl',w:8,h:180},
+  refl:{n:'レフ板',k:'panel',w:90,h:80,c:'#ffffff'},flag:{n:'黒レフ',k:'panel',w:90,h:120,c:'#222'},scrim:{n:'トレペ・紗幕',k:'panel',w:120,h:150,c:'#d9e6f2'},window:{n:'窓',k:'win',w:150,h:200}
+};
+const ROLES=['メイン','フィル','逆目','バックとばし','アクセント','—'];
+const uid=()=>Math.random().toString(36).slice(2,9);
+const it_=(type,x,y,h,extra)=>Object.assign({id:uid(),type,x,y,h},extra||{});
+const base=()=>[it_('camera',300,60,140),it_('person',300,300,150),it_('backdrop',300,500,270)];
+const TEMPLATES=[
+  {name:'1灯：パラで顔をやわらかく',make:()=>[...base(),it_('para',180,210,190,{role:'メイン'}),it_('flag',400,290,120)]},
+  {name:'窓の自然光＋レフ',make:()=>[it_('camera',300,60,140),it_('person',300,300,150),it_('window',80,320,200),it_('refl',420,300,100)]},
+  {name:'2灯：メイン＋バックとばし',make:()=>[...base(),it_('softbox',190,220,180,{role:'メイン'}),it_('strobe',300,460,60,{role:'バックとばし'})]},
+  {name:'3灯：メイン＋フィル＋逆目',make:()=>[...base(),it_('octa',190,220,185,{role:'メイン'}),it_('refl',410,260,100,{role:'フィル'}),it_('strip',420,400,170,{role:'逆目'})]}
+];
+function sample(){return {id:uid(),sample:true,title:'サンプル：パラ1灯のバストアップ',date:S.date,place:'スタジオ（例）',body:'α7R V',lens:'85mm F1.4',iso:'100',f:'8',ss:'1/125',rw:600,rd:550,
+  items:[it_('camera',300,60,140),it_('person',300,300,150),it_('backdrop',300,520,270),it_('para',180,200,190,{role:'メイン',name:'Profoto D2',power:'5.0',k:'5500'}),it_('flag',400,290,120,{role:'—'}),it_('strobe',300,470,60,{role:'バックとばし',power:'4.0',k:'5500'})]}}
+let notes=store.get('lk_notes',null);if(!notes)notes=[sample()];
+let cur=null,sel=null,hist=[],fut=[];
+const saveNotes=()=>store.set('lk_notes',notes);
+const snap=()=>JSON.stringify(cur);
+function commit(){hist.push(lastSnap);if(hist.length>60)hist.shift();fut=[];lastSnap=snap();saveNotes();syncUndo()}
+let lastSnap='';
+function syncUndo(){$('#undoBtn').disabled=!hist.length;$('#redoBtn').disabled=!fut.length}
+function restore(s){const o=JSON.parse(s);Object.keys(cur).forEach(k=>delete cur[k]);Object.assign(cur,o);lastSnap=s;saveNotes();sel=null;fillMeta();drawNote()}
+$('#undoBtn').onclick=()=>{if(!hist.length)return;fut.push(snap());restore(hist.pop());syncUndo();buzz()};
+$('#redoBtn').onclick=()=>{if(!fut.length)return;hist.push(snap());restore(fut.pop());syncUndo();buzz()};
+
+function drawList(){
+  const lc=n=>n.items.filter(i=>T[i.type].k==='light').length;
+  $('#listBox').innerHTML=notes.length?notes.map(n=>`<div class="card item"><div><b>${esc(n.title||'無題')}</b><div class="note">${esc(n.date)}・${esc(n.place||'場所なし')}・${lc(n)}灯</div></div><button data-open="${n.id}">開く</button><button data-del="${n.id}">削除</button></div>`).join('')
+    :`<div class="card"><b>最初のセットを記録しましょう。</b><p class="note">見本から始めると、置き直すだけで1枚のノートになります。</p><button id="restoreSample">サンプルを開く</button></div>`;
+  const rs=$('#restoreSample');if(rs)rs.onclick=()=>{const s=sample();notes.unshift(s);saveNotes();openNote(s.id)};
+  $('#tplBox').innerHTML=notes.length<=1?`<h3>定番のライティングから作る</h3><div class="row">${TEMPLATES.map((t,i)=>`<button data-tpl="${i}">${esc(t.name)}</button>`).join('')}</div>`:`<details><summary class="note">定番のライティングから作る</summary><div class="row">${TEMPLATES.map((t,i)=>`<button data-tpl="${i}">${esc(t.name)}</button>`).join('')}</div></details>`;
+  $('#guide').hidden=!!store.get('lk_guided',false);
+  $('#shotsH').hidden=!shots.length;
+  $('#shots').innerHTML=shots.map(s=>`<figure data-shot="${s.id}"><img src="${s.url}" alt=""><figcaption>${esc(s.cap)}</figcaption></figure>`).join('');
+}
+$('#guideOk').onclick=()=>{store.set('lk_guided',true);$('#guide').hidden=true};
+$('#listBox').onclick=e=>{const o=e.target.dataset.open,d=e.target.dataset.del;
+  if(o)openNote(o);
+  if(d){if(e.target.dataset.sure){notes=notes.filter(n=>n.id!==d);saveNotes();drawList()}else{e.target.dataset.sure=1;e.target.textContent='本当に削除'}}};
+$('#tplBox').onclick=e=>{const i=e.target.dataset.tpl;if(i==null)return;const t=TEMPLATES[+i];newNote(t.name,t.make())};
+function newNote(title,items){const n={id:uid(),title,date:S.date,place:'',body:'',lens:'',iso:'',f:'',ss:'',rw:600,rd:550,items};notes.unshift(n);saveNotes();openNote(n.id)}
+$('#newNote').onclick=()=>newNote('新しいノート',base());
+$('#shots').onclick=e=>{const f=e.target.closest('[data-shot]');if(!f)return;const s=shots.find(x=>x.id===f.dataset.shot);$('#shotImg').src=s.url;$('#shotView').dataset.id=s.id;$('#shotView').classList.add('show')};
+$('#closeShot').onclick=()=>$('#shotView').classList.remove('show');
+$('#delShot').onclick=()=>{shots=shots.filter(s=>s.id!==$('#shotView').dataset.id);store.set('lk_shots',shots);$('#shotView').classList.remove('show');drawList()};
+$('#backList').onclick=()=>{$('#noteEdit').hidden=true;$('#noteList').hidden=false;drawList()};
+function fillMeta(){$$('[data-n]').forEach(i=>i.value=cur[i.dataset.n]??'')}
+function openNote(id){cur=notes.find(n=>n.id===id);sel=null;hist=[];fut=[];lastSnap=snap();syncUndo();$('#noteList').hidden=true;$('#noteEdit').hidden=false;fillMeta();drawNote();window.scrollTo(0,0)}
+let metaTimer=null;
+$$('[data-n]').forEach(i=>i.oninput=()=>{const k=i.dataset.n;cur[k]=(k==='rw'||k==='rd')?Math.max(200,+i.value||0):i.value;drawNote(true);clearTimeout(metaTimer);metaTimer=setTimeout(commit,600)});
+$('#palette').innerHTML=Object.entries(T).map(([k,t])=>`<button data-add="${k}">＋${t.n}</button>`).join('');
+$('#palette').onclick=e=>{const k=e.target.dataset.add;if(!k)return;const t=T[k],p=subj();
+  const it={id:uid(),type:k,x:Math.max(30,Math.min(cur.rw-30,(p?p.x:cur.rw/2)-120)),y:Math.max(30,(p?p.y:cur.rd/2)-60),h:t.h};
+  if(t.k==='light')it.role=cur.items.some(i=>i.role==='メイン')?'フィル':'メイン';
+  cur.items.push(it);sel=it.id;commit();drawNote();buzz()};
+const subj=()=>cur.items.find(i=>i.type==='person');
+const HMAX=320;
+const lightish=it=>['light','panel'].includes(T[it.type].k);
+function symbol(it,view,col){
+  const t=T[it.type],w=it.w||t.w;let s='';
+  if(t.k==='light'){
+    const sw=view==='side'?(t.sw||w):w;
+    s+=`<rect x="-14" y="-7" width="14" height="14" rx="2" fill="${col}"/>`;
+    if(t.m==='box')s+=`<path d="M0 -7L22 ${-sw/2}V${sw/2}L0 7Z" fill="#fff" stroke="${col}" stroke-width="2"/><line x1="22" y1="${-sw/2}" x2="22" y2="${sw/2}" stroke="${col}" stroke-width="4"/>`;
+    if(t.m==='strip')s+=`<rect x="0" y="${-sw/2}" width="16" height="${sw}" fill="#fff" stroke="${col}" stroke-width="2"/>`;
+    if(t.m==='umb')s+=`<path d="M${sw*0.32} ${-sw/2}Q0 0 ${sw*0.32} ${sw/2}" fill="none" stroke="${col}" stroke-width="3"/><line x1="0" y1="0" x2="${sw*0.32}" y2="0" stroke="${col}"/>`;
+    if(t.m==='dish')s+=`<path d="M${sw/3} ${-sw/2}A${sw/2} ${sw/2} 0 0 0 ${sw/3} ${sw/2}Z" fill="#fff" stroke="${col}" stroke-width="3"/>`;
+    if(t.m==='refl'){const L=Math.max(12,sw),Hh=Math.max(10,sw*0.7);s+=`<path d="M0 -6L${L} ${-Hh}V${Hh}L0 6Z" fill="#fff" stroke="${col}" stroke-width="2"/>`}
+    if(t.m==='ring')s=`<circle r="${sw/2}" fill="none" stroke="${col}" stroke-width="7"/>`;
+    if(t.m==='ball')s=`<circle r="${sw/2}" fill="#fff" stroke="${col}" stroke-width="3"/>`;
+    s+=`<path d="M${(t.m==='ring'||t.m==='ball')?sw/2+6:30} 0l${view==='side'?40:60} 0" stroke="${col}" stroke-width="1.5" stroke-dasharray="4 4" opacity=".6"/>`;
+  }
+  if(t.k==='panel')s+=`<rect x="-4" y="${-w/2}" width="8" height="${w}" fill="${t.c}" stroke="${col}" stroke-width="2"/>`;
+  return s;
+}
+function renderView(view){
+  const W=view==='top'?cur.rw:cur.rd,H=view==='top'?cur.rd:HMAX;
+  const P=it=>view==='top'?[it.x,cur.rd-it.y]:[it.y,HMAX-it.h];
+  const p=subj(),tgt=p?P(p):[W/2,H/2];if(p&&view==='side')tgt[1]=HMAX-p.h+12;
+  let o=`<rect x="0" y="0" width="${W}" height="${H}" fill="#fff"/>`;
+  for(let i=50;i<W;i+=50)o+=`<line x1="${i}" y1="0" x2="${i}" y2="${H}" stroke="${i%100?'#eee':'#ddd'}"/>`;
+  for(let j=50;j<H;j+=50)o+=`<line x1="0" y1="${H-j}" x2="${W}" y2="${H-j}" stroke="${j%100?'#eee':'#ddd'}"/>`;
+  o+=`<rect x="1" y="1" width="${W-2}" height="${H-2}" fill="none" stroke="#999" stroke-width="2"/>`;
+  if(view==='side')o+=`<line x1="0" y1="${HMAX}" x2="${W}" y2="${HMAX}" stroke="#555" stroke-width="3"/>`;
+  o+=`<text x="${W-8}" y="${H-10}" font-size="16" fill="#999" text-anchor="end">1マス50cm</text>`;
+  const items=[...cur.items].sort((a,b)=>(a.id===sel)-(b.id===sel));
+  for(const it of items){
+    const t=T[it.type],[X,Y]=P(it),col=it.id===sel?C.pkey:'#222';let g='';
+    if(view==='side'&&!['back','win','person'].includes(t.k))g+=`<line x1="${X}" y1="${Y}" x2="${X}" y2="${HMAX}" stroke="#888" stroke-width="2"/>`;
+    if(lightish(it)){const ang=(view==='side'&&t.k==='panel')?(tgt[0]>=X?0:180):Math.atan2(tgt[1]-Y,tgt[0]-X)/rad;g+=`<g transform="translate(${X} ${Y}) rotate(${ang})">${symbol(it,view,col)}</g>`}
+    else if(t.k==='cam'){const ang=Math.atan2(tgt[1]-Y,tgt[0]-X)/rad;g+=`<g transform="translate(${X} ${Y}) rotate(${ang})"><rect x="-16" y="-11" width="22" height="22" rx="3" fill="${col}"/><rect x="6" y="-7" width="14" height="14" fill="${col}"/></g>`}
+    else if(t.k==='person')g+=view==='top'?`<ellipse cx="${X}" cy="${Y}" rx="25" ry="14" fill="#fff" stroke="${col}" stroke-width="3"/><circle cx="${X}" cy="${Y}" r="11" fill="${col}"/>`:`<line x1="${X}" y1="${Y+24}" x2="${X}" y2="${HMAX}" stroke="${col}" stroke-width="10" stroke-linecap="round"/><circle cx="${X}" cy="${Y+10}" r="13" fill="${col}"/>`;
+    else if(t.k==='back')g+=view==='top'?`<rect x="${X-(it.w||t.w)/2}" y="${Y-5}" width="${it.w||t.w}" height="10" fill="#bbb" stroke="${col}" stroke-width="2"/>`:`<rect x="${X-5}" y="${Y}" width="10" height="${HMAX-Y}" fill="#bbb" stroke="${col}" stroke-width="2"/>`;
+    else if(t.k==='win')g+=view==='top'?`<rect x="${X-(it.w||t.w)/2}" y="${Y-6}" width="${it.w||t.w}" height="12" fill="#cfe8ff" stroke="${col}" stroke-width="2"/>`:`<rect x="${X-6}" y="${Y}" width="12" height="${Math.min(140,HMAX-Y)}" fill="#cfe8ff" stroke="${col}" stroke-width="2"/>`;
+    const nm=it.role&&it.role!=='—'?it.role:t.n,lab=view==='top'?nm:`${nm} ${Math.round(it.h)}`;
+    g+=`<text x="${X}" y="${Math.max(20,Y+(view==='top'?-28:-20))}" font-size="20" text-anchor="middle" fill="${col}" font-weight="${it.id===sel?700:500}" paint-order="stroke" stroke="#fff" stroke-width="4">${esc(lab)}</text>`;
+    o+=`<g data-id="${it.id}" style="cursor:grab">${g}<circle cx="${X}" cy="${Y}" r="32" fill="transparent"/></g>`;
+  }
+  return {svg:o,W,H};
+}
+function drawNote(skipProps){
+  for(const v of ['top','side']){const r=renderView(v),el=$('#'+v);el.setAttribute('viewBox',`0 0 ${r.W} ${r.H}`);el.innerHTML=r.svg}
+  if(!skipProps)drawProps();drawLights();
+}
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.h-b.h);
+function drawLights(){
+  const p=subj();let t='<tr><th>機材</th><th>役割</th><th>被写体まで</th><th>高さ</th><th>出力・色温度</th></tr>';
+  cur.items.filter(lightish).forEach(i=>t+=`<tr><td>${esc(i.name||T[i.type].n)}</td><td>${esc(i.role||'—')}</td><td>${p?Math.round(dist(i,p))+'cm':'—'}</td><td>${Math.round(i.h)}cm</td><td>${esc([i.power,i.k&&i.k+'K'].filter(Boolean).join('・')||'—')}</td></tr>`);
+  const c=cur.items.find(i=>i.type==='camera');if(c&&p)t+=`<tr><td>カメラ</td><td></td><td>${Math.round(dist(c,p))}cm</td><td>${Math.round(c.h)}cm</td><td></td></tr>`;
+  $('#lightTable').innerHTML=t;
+}
+function drawProps(){
+  const it=cur.items.find(i=>i.id===sel);
+  if(!it){$('#props').innerHTML='<p class="note">図の中の機材をタップすると、役割・出力・高さを変えられます。上の「＋」で機材を足せます。</p>';return}
+  const t=T[it.type];
+  $('#props').innerHTML=`<b>${esc(t.n)}</b>
+  <div class="row">${t.k==='light'?`<div><label>役割</label><select data-p="role">${ROLES.map(r=>`<option ${r===it.role?'selected':''}>${r}</option>`).join('')}</select></div><div><label>機材名</label><input type="text" data-p="name" value="${esc(it.name)}"></div>`:''}
+  <div><label>高さ cm</label><input type="number" data-p="h" value="${Math.round(it.h)}"></div>
+  ${['light','panel','back','win'].includes(t.k)?`<div><label>大きさ cm</label><input type="number" data-p="w" value="${it.w||t.w}"></div>`:''}</div>
+  ${t.k==='light'?`<div class="row"><div><label>出力</label><input type="text" data-p="power" value="${esc(it.power)}"></div><div><label>色温度 K</label><input type="text" data-p="k" inputmode="numeric" value="${esc(it.k)}"></div></div>`:''}
+  <div class="row"><button id="dupBtn">複製</button><button id="delBtn">削除</button></div>`;
+  $$('#props [data-p]').forEach(i=>{i.oninput=()=>{const k=i.dataset.p;it[k]=(k==='h'||k==='w')?(+i.value||0):i.value;drawNote(true);clearTimeout(metaTimer);metaTimer=setTimeout(commit,600)}});
+  $('#dupBtn').onclick=()=>{const c={...it,id:uid(),x:Math.min(cur.rw,it.x+40)};cur.items.push(c);sel=c.id;commit();drawNote()};
+  $('#delBtn').onclick=()=>{cur.items=cur.items.filter(i=>i!==it);sel=null;commit();drawNote()};
+}
+function bindDrag(view){
+  const el=$('#'+view);let drag=null,moved=false;
+  const pt=e=>new DOMPoint(e.clientX,e.clientY).matrixTransform(el.getScreenCTM().inverse());
+  el.addEventListener('pointerdown',e=>{const g=e.target.closest('[data-id]');if(!g)return;sel=g.dataset.id;drag=cur.items.find(i=>i.id===sel);moved=false;el.setPointerCapture(e.pointerId);drawNote()});
+  el.addEventListener('pointermove',e=>{if(!drag)return;const q=pt(e);moved=true;
+    if(view==='top'){drag.x=Math.round(Math.max(0,Math.min(cur.rw,q.x))/5)*5;drag.y=Math.round(Math.max(0,Math.min(cur.rd,cur.rd-q.y))/5)*5}
+    else{drag.y=Math.round(Math.max(0,Math.min(cur.rd,q.x))/5)*5;drag.h=Math.round(Math.max(0,Math.min(HMAX,HMAX-q.y))/5)*5}
+    drawNote(true)});
+  const end=()=>{if(drag){drag=null;if(moved)commit();drawProps()}};
+  el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
+}
+bindDrag('top');bindDrag('side');
+
+/* ---------- ノートを1枚の画像に ---------- */
+function sheetText(){
+  const p=subj();
+  return [`【撮影ノート】${cur.title}`,`${cur.date}　${cur.place}`,`${cur.body} / ${cur.lens}　ISO${cur.iso} F${cur.f} ${cur.ss}`,
+    ...cur.items.filter(lightish).map(i=>`・${i.role||'—'}：${i.name||T[i.type].n}（高さ${Math.round(i.h)}cm${p?`、被写体まで${Math.round(dist(i,p))}cm`:''}${i.power?`、出力${i.power}`:''}${i.k?`、${i.k}K`:''}）`)].join('\n');
+}
+function buildSheet(){
+  const top=renderView('top'),side=renderView('side'),Wd=1000,m=24,p=subj();
+  const th=Math.round((Wd-2*m)*top.H/top.W),sh=Math.round((Wd-2*m)*side.H/side.W),lines=cur.items.filter(lightish);
+  const y1=150,y2=y1+th+50,y3=y2+sh+40,Ht=y3+30+lines.length*30+40;
+  let o=`<svg xmlns="http://www.w3.org/2000/svg" width="${Wd}" height="${Ht}" viewBox="0 0 ${Wd} ${Ht}" font-family="-apple-system,Hiragino Sans,sans-serif"><rect width="${Wd}" height="${Ht}" fill="#FAF8F3"/>`;
+  o+=`<rect x="${m}" y="${m}" width="${Wd-2*m}" height="100" fill="none" stroke="#0F7C74" stroke-width="3"/>`;
+  o+=`<text x="${m+16}" y="${m+34}" font-size="26" font-weight="700" fill="#222">${esc(cur.title)}</text>`;
+  o+=`<text x="${m+16}" y="${m+64}" font-size="18" fill="#444">${esc(cur.date)}　${esc(cur.place)}</text>`;
+  o+=`<text x="${m+16}" y="${m+90}" font-size="18" fill="#444">${esc(cur.body)}　${esc(cur.lens)}　ISO ${esc(cur.iso)}　F${esc(cur.f)}　${esc(cur.ss)}</text>`;
+  o+=`<text x="${m}" y="${y1-10}" font-size="16" fill="#777">俯瞰図</text><svg x="${m}" y="${y1}" width="${Wd-2*m}" height="${th}" viewBox="0 0 ${top.W} ${top.H}">${top.svg}</svg>`;
+  o+=`<text x="${m}" y="${y2-10}" font-size="16" fill="#777">立体図（高さcm）</text><svg x="${m}" y="${y2}" width="${Wd-2*m}" height="${sh}" viewBox="0 0 ${side.W} ${side.H}">${side.svg}</svg>`;
+  lines.forEach((i,k)=>o+=`<text x="${m}" y="${y3+30+k*30}" font-size="18" fill="#222">${esc(`${i.role||'—'}　${i.name||T[i.type].n}　高さ${Math.round(i.h)}cm${p?`　被写体まで${Math.round(dist(i,p))}cm`:''}${i.power?`　出力${i.power}`:''}${i.k?`　${i.k}K`:''}`)}</text>`);
+  if($('#markChk').checked)o+=`<text x="${Wd-m}" y="${Ht-14}" font-size="14" fill="#999" text-anchor="end">ロケハンノート</text>`;
+  o+='</svg>';
+  const img=new Image();
+  img.onload=()=>{const c=document.createElement('canvas');c.width=Wd*2;c.height=Ht*2;const x=c.getContext('2d');x.scale(2,2);x.drawImage(img,0,0);try{$('#sheetImg').src=c.toDataURL('image/png')}catch(e){$('#sheetImg').src=img.src}};
+  img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(o);
+}
+$('#sheetBtn').onclick=()=>{sel=null;drawNote();buildSheet();$('#sheet').classList.add('show');buzz()};
+$('#markChk').onchange=buildSheet;
+$('#closeSheet').onclick=()=>$('#sheet').classList.remove('show');
+$('#copyBtn').onclick=async e=>{try{await navigator.clipboard.writeText(sheetText());e.target.textContent='コピーしました'}catch(err){e.target.textContent='コピーできませんでした'}};
+
+/* ---------- 全体 ---------- */
+function refresh(){$('#tm').value=S.min;$('#tmLabel').textContent=`${S.date.slice(5).replace('-','/')} ${hm(S.min)}`;drawFinder();drawSun()}
+syncBtns();setFl(S.fl,true);drawList();refresh();
+const h0=location.hash.slice(1);if(['sun','notes'].includes(h0))showTab(h0);
+}
+</script>
+</body>
+</html>
