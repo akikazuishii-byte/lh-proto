@@ -132,8 +132,11 @@ th{font-size:13px;color:var(--sub);font-weight:500}
 .props .pg label{font-size:11px;margin:0 0 2px}
 .props .pg input,.props .pg select{min-height:38px;padding:4px 8px;font-size:16px}
 .props .pg .w2{grid-column:span 2}
-input[data-scrub]{touch-action:pan-y;cursor:ew-resize;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='10'%3E%3Cpath d='M5 1L1 5l4 4M11 1l4 4-4 4' fill='none' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;padding-right:24px!important}
-input[data-scrub].scrubbing{-webkit-user-select:none;user-select:none;border-color:var(--key);box-shadow:0 0 0 2px var(--key) inset;caret-color:transparent}
+.scrub{position:relative;display:flex;align-items:center;min-height:40px;padding:0 26px 0 10px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;font-size:16px;font-variant-numeric:tabular-nums;touch-action:pan-y;cursor:ew-resize;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.scrub i{position:absolute;right:7px;top:50%;width:14px;height:10px;margin-top:-5px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='10'%3E%3Cpath d='M4.5 1L1 5l3.5 4M9.5 1L13 5l-3.5 4' fill='none' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat}
+.scrub.on{border-color:var(--key);box-shadow:0 0 0 2px var(--key) inset}
+.scrub.edit{padding:0 4px}.scrub.edit input{min-height:34px;border:0;background:transparent;padding:0 6px;width:100%}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.chips button{min-height:36px;padding:0 10px;font-size:14px}
 input[type=number]::-webkit-inner-spin-button{display:none}
 .lights td,.lights th{text-align:left;white-space:normal;padding:6px 4px}
 .lights td.nm{font-size:14px;line-height:1.3}.lights td.nm small{display:block;color:var(--sub);font-size:12px}
@@ -608,7 +611,7 @@ const T={
   refl:{n:'レフ板',k:'panel',g:'mod',w:90,h:80,c:'#ffffff'},flag:{n:'黒レフ',k:'panel',g:'mod',w:90,h:120,c:'#222'},scrim:{n:'トレペ・紗幕',k:'panel',g:'mod',w:120,h:150,c:'#d9e6f2'},
   vwhite:{n:'白ブック（V字）',k:'vflat',g:'mod',w:90,h:180,c:'#fff'},vblack:{n:'黒ブック（V字）',k:'vflat',g:'mod',w:90,h:180,c:'#222'},cloth:{n:'黒布・暗幕',k:'cloth',g:'mod',w:200,h:250},
   window:{n:'窓',k:'win',g:'room',w:150,h:200},door:{n:'ドア（開き戸）',k:'door',g:'room',w:80,h:200},slide:{n:'引き戸',k:'slide',g:'room',w:160,h:200},pillar:{n:'柱',k:'pillar',g:'room',w:30,h:270},
-  camera:{n:'カメラ',k:'cam',g:'set',w:20,h:140},person:{n:'被写体',k:'person',g:'set',w:50,h:150},backdrop:{n:'背景',k:'back',g:'set',w:270,h:270}
+  camera:{n:'カメラ',k:'cam',g:'set',w:20,h:140},person:{n:'被写体（人）',k:'person',g:'set',w:50,h:150},object:{n:'被写体（物）',k:'object',g:'set',w:30,h:100},table:{n:'テーブル・撮影台',k:'table',g:'set',w:120,len:80,h:70},backdrop:{n:'背景',k:'back',g:'set',w:270,h:270}
 };
 const ROLES=['メイン','フィル','逆目','バックとばし','アクセント','—'];
 const uid=()=>Math.random().toString(36).slice(2,9);
@@ -664,9 +667,11 @@ $('#palSeg').onclick=e=>{const b=e.target.closest('button');if(!b)return;group=b
 $('#palette').onclick=e=>{const bt=e.target.closest('[data-add]');if(!bt)return;const k=bt.dataset.add;const t=T[k],p=subj();
   const it={id:uid(),type:k,x:Math.max(30,Math.min(cur.rw-30,(p?p.x:cur.rw/2)-120)),y:Math.max(30,(p?p.y:cur.rd/2)-60),h:t.h};
   if(t.k==='light')it.role=cur.items.some(i=>i.role==='メイン')?'フィル':'メイン';
+  if(t.k==='object'){const tb=cur.items.find(i=>i.type==='table');if(tb){it.x=tb.x;it.y=tb.y;it.h=Math.round(tb.h+t.w)}}
+  if(t.k==='table'){const ob=cur.items.find(i=>i.type==='object')||subj();if(ob){it.x=ob.x;it.y=ob.y}}
   if(['light','panel','cam','vflat','cloth'].includes(t.k)){const a=aimAngles(it);it.rot=t.k==='cloth'?a.rot+90:a.rot;it.tilt=['light','cam'].includes(t.k)?a.tilt:0}
   cur.items.push(it);sel=it.id;selD=null;setMode('move');commit();drawNote();toast(`${t.n}を置きました。青緑の丸で向きを変えられます`)};
-const subj=()=>cur.items.find(i=>i.type==='person');
+const subj=()=>cur.items.find(i=>i.type==='person')||cur.items.find(i=>i.type==='object');
 const HMAX=320;
 let GK='g0';
 const DEFS=()=>`<defs><linearGradient id="bm${GK}" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#FFB020" stop-opacity=".32"/><stop offset="1" stop-color="#FFB020" stop-opacity="0"/></linearGradient><radialGradient id="glow${GK}"><stop offset=".45" stop-color="#FFB020" stop-opacity=".35"/><stop offset="1" stop-color="#FFB020" stop-opacity="0"/></radialGradient><pattern id="hatch${GK}" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" stroke="#9a9a9a" stroke-width="1.2"/></pattern></defs>`;
@@ -714,10 +719,10 @@ function symbol(it,view,col){
     if(!icon&&!SHOWBEAM&&t.m!=='ball'&&t.m!=='bare'){const ax=AX||F+(t.m==='ring'?6:8);b=`<path d="M${ax} -5L${ax+11} 0L${ax} 5Z" fill="${col}"/>`}
     if(!icon&&SHOWBEAM&&BEAM[t.m]){const h0=t.m==='ring'?hw*0.5:Math.max(6,hw*0.85),sp=BEAM[t.m]*(view==='side'?0.6:1);b=`<path d="M${F} ${-h0}L${F+len} ${-h0-sp}L${F+len} ${h0+sp}L${F} ${h0}Z" fill="url(#bm${GK})"/>`}
   }
-  if(t.k==='panel'){const hw=w/2;
-    if(it.type==='scrim')s=`<rect x="-3.5" y="${-hw}" width="7" height="${w}" rx="2" fill="#fff"/><rect x="-3.5" y="${-hw}" width="7" height="${w}" rx="2" fill="url(#hatch${GK})" stroke="${col}" ${LW}/>`;
-    else if(it.type==='flag')s=`<rect x="-3.5" y="${-hw}" width="7" height="${w}" rx="2" fill="${col}"/>`;
-    else s=`<rect x="-3.5" y="${-hw}" width="7" height="${w}" rx="2" ${O}/>`;
+  if(t.k==='panel'){const w0=view==='side'?(it.len||t.len||w):w,hw=w0/2,w_=w0;
+    if(it.type==='scrim')s=`<rect x="-3.5" y="${-hw}" width="7" height="${w_}" rx="2" fill="#fff"/><rect x="-3.5" y="${-hw}" width="7" height="${w_}" rx="2" fill="url(#hatch${GK})" stroke="${col}" ${LW}/>`;
+    else if(it.type==='flag')s=`<rect x="-3.5" y="${-hw}" width="7" height="${w_}" rx="2" fill="${col}"/>`;
+    else s=`<rect x="-3.5" y="${-hw}" width="7" height="${w_}" rx="2" ${O}/>`;
     s+=`<circle cx="-8" cy="0" r="2.5" fill="#fff" stroke="${col}" stroke-width="1.5"/>`}
   return b+s;
 }
@@ -738,6 +743,8 @@ function palIcon(k){const t=T[k],c='currentColor';let g='',vb='-30 -28 76 56';
   else if(t.k==='slide')g=`<rect x="-24" y="-8" width="30" height="7" rx="1.5" fill="none" stroke="${c}" stroke-width="2.5"/><rect x="2" y="1" width="30" height="7" rx="1.5" fill="none" stroke="${c}" stroke-width="2.5"/>`;
   else if(t.k==='cloth')g=clothTop(52,c).replace(/#fff/g,'none');
   else if(t.k==='vflat')g=`<g transform="translate(-14 0)">${vflatTop(40,c,t.c).replace(/stroke="#fff"/g,'stroke="#2a2a2a"')}</g>`;
+  else if(t.k==='table')g=`<rect x="-22" y="-13" width="52" height="26" rx="3" fill="none" stroke="${c}" stroke-width="2.5"/><rect x="-17" y="-8" width="42" height="16" rx="2" fill="none" stroke="${c}" stroke-width="1" opacity=".5"/>`;
+  else if(t.k==='object')g=`<rect x="-6" y="-12" width="24" height="24" rx="3" fill="none" stroke="${c}" stroke-width="2.5"/><path d="M-6 -12L18 12M18 -12L-6 12" stroke="${c}" stroke-width="1" opacity=".6"/>`;
   else if(t.k==='pillar')g=`<rect x="-6" y="-14" width="28" height="28" fill="none" stroke="${c}" stroke-width="2.5"/><path d="M-6 -4L4 -14M-6 8L16 -14M2 14L22 -6M14 14L22 6" stroke="${c}" stroke-width="1.2"/>`;
   return `<svg class="pi" viewBox="${vb}" aria-hidden="true">${g}</svg>`}
 function lensMM(){const m=String(cur.lens||'').match(/(\d+(?:\.\d+)?)\s*(?:-|〜|~)?\s*(?:\d+)?\s*mm/i)||String(cur.lens||'').match(/(\d+(?:\.\d+)?)/);const f=m?+m[1]:50;return f>=8&&f<=1200?f:50}
@@ -748,9 +755,9 @@ function camSym(view,col){const O=`fill="#fff" stroke="${col}" ${LW}`;
   return `<path d="M22 0L${22+dx} ${-dy}L${22+dx} ${dy}Z" fill="${C.pkey}" opacity=".05"/><path d="M22 0L${22+dx} ${-dy}M22 0L${22+dx} ${dy}" stroke="${col}" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>`+body}
 function aimAngles(it){const p=subj();if(!p)return {rot:it.rot??-90,tilt:it.tilt??0};
   const top=Math.atan2(-(p.y-it.y),p.x-it.x)/rad,side=Math.atan2(-((p.h-12)-it.h),p.y-it.y)/rad;return {rot:Math.round(top),tilt:Math.round(side)}}
-const ROTK=['light','panel','cam','back','win','door','slide','vflat','cloth'];
+const ROTK=['light','panel','cam','back','win','door','slide','vflat','cloth','table'];
 function norm(it){const t=T[it.type];if(!ROTK.includes(t.k))return;
-  if(it.rot==null||it.tilt==null){if(['back','win','door','slide'].includes(t.k)){if(it.rot==null)it.rot=0;if(it.tilt==null)it.tilt=0}else{const a=aimAngles(it);if(it.rot==null)it.rot=a.rot;if(it.tilt==null)it.tilt=t.k==='panel'?(a.tilt>-90&&a.tilt<90?0:180):a.tilt}}}
+  if(it.rot==null||it.tilt==null){if(['back','win','door','slide','table'].includes(t.k)){if(it.rot==null)it.rot=0;if(it.tilt==null)it.tilt=0}else{const a=aimAngles(it);if(it.rot==null)it.rot=a.rot;if(it.tilt==null)it.tilt=t.k==='panel'?(a.tilt>-90&&a.tilt<90?0:180):a.tilt}}}
 function renderView(view,thumb){
   const W=view==='top'?cur.rw:cur.rd,H=view==='top'?cur.rd:HMAX;
   const P=it=>view==='top'?[it.x,cur.rd-it.y]:[it.y,HMAX-it.h];
@@ -766,7 +773,7 @@ function renderView(view,thumb){
     const pts=d.pts.map(q=>q.join(',')).join(' ');
     o+=`<g data-did="${d.id}"><polyline points="${pts}" fill="none" stroke="transparent" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="${d.w||4}" stroke-linecap="round" stroke-linejoin="round"/></g>`}
   const ROOM=['win','door','slide','pillar','back'];
-  const lay=it=>view==='side'?(ROOM.includes(T[it.type].k)||T[it.type].k==='cloth'?0:1):0;
+  const lay=it=>view==='side'?(ROOM.includes(T[it.type].k)||T[it.type].k==='cloth'?0:T[it.type].k==='table'?0.5:1):0;
   const items=[...cur.items].sort((a,b)=>(a.id===sel)-(b.id===sel)||lay(a)-lay(b)||(view==='side'?a.x-b.x:0));
   for(const it of items){
     norm(it);const t=T[it.type],[X,Y]=P(it),on=!thumb&&it.id===sel,col=on?C.pkey:'#222',w=it.w||t.w;let g='';
@@ -777,6 +784,9 @@ function renderView(view,thumb){
     else if(t.k==='person'){const O=`fill="#fff" stroke="${col}" ${LW}`;if(view==='top'){const cm=cur.items.find(i=>i.type==='camera'),fa=cm?Math.atan2(-(cm.y-it.y),cm.x-it.x)/rad:90;
       g+=`<g transform="translate(${X} ${Y}) rotate(${fa})"><ellipse rx="12" ry="26" ${O}/><circle r="10" ${O}/><path d="M8 -5L17 0L8 5" ${O}/></g>`}
     else{const fl=HMAX,top=Y,tb=top+20+(fl-top)*0.42;g+=`<circle cx="${X}" cy="${top+2}" r="11" ${O}/><rect x="${X-12}" y="${top+17}" width="24" height="${Math.max(12,tb-top-17)}" rx="9" ${O}/><path d="M${X-5} ${tb}V${fl}M${X+5} ${tb}V${fl}" stroke="${col}" stroke-width="2" stroke-linecap="round"/>`}}
+    else if(t.k==='object'){const O=`fill="#fff" stroke="${col}" ${SW}`;g+=view==='top'?`<rect x="${X-w/2}" y="${Y-w/2}" width="${w}" height="${w}" rx="3" ${O}/><path d="M${X-w/2} ${Y-w/2}L${X+w/2} ${Y+w/2}M${X+w/2} ${Y-w/2}L${X-w/2} ${Y+w/2}" stroke="${col}" stroke-width="1" opacity=".5"/>`:`<rect x="${X-w/2}" y="${Y}" width="${w}" height="${Math.max(4,w)}" rx="3" ${O}/>`}
+    else if(t.k==='table'&&view==='side'){const L=it.len||t.len,r=(it.rot||0)*rad,ext=Math.abs(w*Math.sin(r))+Math.abs(L*Math.cos(r));
+      g+=`<rect x="${X-ext/2}" y="${Y}" width="${ext}" height="5" rx="1.5" fill="#fff" stroke="${col}" ${SW}/><path d="M${X-ext/2+6} ${Y+5}V${HMAX}M${X+ext/2-6} ${Y+5}V${HMAX}" stroke="${col}" stroke-width="2" stroke-linecap="round"/>`}
     else if(t.k==='pillar')g+=view==='top'?`<rect x="${X-w/2}" y="${Y-w/2}" width="${w}" height="${w}" fill="url(#hatch${GK})" stroke="${col}" stroke-width="2"/>`:`<rect x="${X-w/2}" y="${Y}" width="${w}" height="${HMAX-Y}" fill="url(#hatch${GK})" stroke="${col}" stroke-width="2"/>`;
     else if(view==='top'){
       let sh='';
@@ -785,6 +795,7 @@ function renderView(view,thumb){
       if(t.k==='door')sh=`<line x1="${-w/2}" y1="0" x2="${-w/2}" y2="${-w}" stroke="${col}" stroke-width="4"/><path d="M${-w/2} ${-w}A${w} ${w} 0 0 1 ${w/2} 0" fill="none" stroke="${col}" stroke-width="1.5" stroke-dasharray="5 4"/><rect x="${-w/2}" y="-3" width="${w}" height="6" fill="#fff" stroke="${col}"/>`;
       if(t.k==='slide')sh=`<rect x="${-w/2}" y="-8" width="${w/2+6}" height="7" fill="#fff" stroke="${col}" stroke-width="2"/><rect x="-6" y="1" width="${w/2+6}" height="7" fill="#fff" stroke="${col}" stroke-width="2"/>`;
       if(t.k==='cloth')sh=clothTop(w,col);
+      if(t.k==='table'){const L=it.len||t.len;sh=`<rect x="${-w/2}" y="${-L/2}" width="${w}" height="${L}" rx="3" fill="#fff" stroke="${col}" ${SW}/><rect x="${-w/2+5}" y="${-L/2+5}" width="${w-10}" height="${L-10}" rx="2" fill="none" stroke="${col}" stroke-width="1" opacity=".4"/>`}
       if(t.k==='vflat')sh=vflatTop(w,col,t.c);
       g+=`<g transform="translate(${X} ${Y}) rotate(${ang})">${sh}</g>`;
     }else{
@@ -802,7 +813,7 @@ function renderView(view,thumb){
       const sub=view==='top'&&t.k==='light'?[it.name,it.power].filter(Boolean).join(' '):'';if(sub)g+=`<text x="${lx}" y="${Math.max(36,Y-48)}" font-size="13" text-anchor="middle" fill="#666" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">${esc(sub)}</text>`;
       g+=`<text x="${lx}" y="${Math.max(20,Y+(view==='top'?-28:-20))}" font-size="${bg?14:16}" text-anchor="middle" fill="${bg?'#8a8a8a':col}" font-weight="${on?700:500}" letter-spacing=".5" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">${esc(lab)}</text>`}
     o+=`<g data-id="${it.id}" style="cursor:grab">${g}${thumb?'':`<circle cx="${X}" cy="${Y}" r="32" fill="transparent"/>`}</g>`;
-    if(on&&ROTK.includes(t.k)&&!(view==='side'&&['back','win','door','slide','vflat','cloth'].includes(t.k))){
+    if(on&&ROTK.includes(t.k)&&!(view==='side'&&['back','win','door','slide','vflat','cloth','table'].includes(t.k))){
       const R=view==='top'?80:64,hx=X+R*Math.cos(ang*rad),hy=Y+R*Math.sin(ang*rad);
       o+=`<line x1="${X}" y1="${Y}" x2="${hx}" y2="${hy}" stroke="${C.pkey}" stroke-width="2"/><g data-rot="${it.id}" style="cursor:grab"><circle cx="${hx}" cy="${hy}" r="26" fill="transparent"/><circle cx="${hx}" cy="${hy}" r="13" fill="${C.key}" stroke="#fff" stroke-width="3"/></g>`;
     }
@@ -819,38 +830,42 @@ const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.h-b.h);
 function drawLights(){
   const p=subj();let t='<tr><th>機材</th><th>被写体まで cm</th><th>高さ cm</th><th>出力</th><th>色温度 K</th></tr>';
   const rows=cur.items.filter(i=>lightish(i)||i.type==='camera');
-  const inp=(i,k,v,type='number')=>`<input type="${type==='number'?'number':'text'}" ${type==='number'?'inputmode="numeric"':'inputmode="decimal"'} ${k==='d'?'data-scrub="1" data-min="10" data-max="2000"':k==='h'?'data-scrub="1" data-min="0" data-max="320"':''} data-lt="${k}" data-lid="${i.id}" value="${esc(v)}">`;
+  const inp=(i,k,v,type='number')=>type==='number'?sbox(k,v,{min:k==='d'?10:0,max:k==='d'?2000:320,attr:` data-lt="${k}" data-lid="${i.id}"`}):`<input type="${type==='number'?'number':'text'}" ${type==='number'?'inputmode="numeric"':'inputmode="decimal"'} data-lt="${k}" data-lid="${i.id}" value="${esc(v)}">`;
   rows.forEach(i=>{const t_=T[i.type],role=t_.k==='light'&&i.role&&i.role!=='—'?i.role:'';
     t+=`<tr class="${i.id===sel?'on':''}"><td class="nm" data-pick="${i.id}">${esc(i.name||t_.n)}${role?`<small>${esc(role)}</small>`:''}</td>
     <td class="u">${p?inp(i,'d',Math.round(dist(i,p))):'—'}</td><td class="u">${inp(i,'h',Math.round(i.h))}</td>
     <td class="u2">${t_.k==='light'?inp(i,'power',i.power||'','t'):''}</td><td class="u2">${t_.k==='light'?inp(i,'k',i.k||'','t'):''}</td></tr>`});
   const tb=$('#lightTable'),ae=document.activeElement,key=rows.map(i=>i.id).join()+'|'+!!p;
-  const sc=SCRUB&&SCRUB.on?SCRUB.el:null;if((tb.contains(ae)||sc&&tb.contains(sc))&&tb.dataset.key===key){$$('#lightTable [data-lt]').forEach(el=>{if(el===ae||el===sc)return;const i=cur.items.find(x=>x.id===el.dataset.lid);if(!i)return;const k=el.dataset.lt;el.value=k==='d'?Math.round(dist(i,p)):k==='h'?Math.round(i.h):(i[k]||'')});return}
+  const sc=SC&&SC.on?SC.el:null;if((tb.contains(ae)||sc&&tb.contains(sc))&&tb.dataset.key===key){$$('#lightTable [data-lt]').forEach(el=>{if(el===ae||el===sc||el.contains(ae))return;const i=cur.items.find(x=>x.id===el.dataset.lid);if(!i)return;const k=el.dataset.lt,v=k==='d'?Math.round(dist(i,p)):k==='h'?Math.round(i.h):(i[k]||'');if(el.classList.contains('scrub'))scSet(el,v);else el.value=v});return}
   tb.dataset.key=key;tb.innerHTML=t;
 }
-function applyLT(el){const it=cur.items.find(i=>i.id===el.dataset.lid);if(!it)return false;
-  const k=el.dataset.lt,v=el.value.trim();
+function applyLT(el,val){const it=cur.items.find(i=>i.id===el.dataset.lid);if(!it)return false;
+  const k=el.dataset.lt,v=String(val??el.value).trim();
   if(k==='h'){it.h=Math.max(0,Math.min(HMAX,+v||0))}
   else if(k==='d'){const p=subj(),D=Math.max(10,+v||0);if(!p)return;const dh=it.h-p.h,hz=Math.sqrt(Math.max(0,D*D-dh*dh));
     let vx=it.x-p.x,vy=it.y-p.y,L=Math.hypot(vx,vy);if(L<1){vx=0;vy=-1;L=1}
     it.x=Math.round(Math.max(0,Math.min(cur.rw,p.x+vx/L*hz)));it.y=Math.round(Math.max(0,Math.min(cur.rd,p.y+vy/L*hz)));
-    if(Math.abs(dh)>D&&!(SCRUB&&SCRUB.on))toast('高さの差より短い距離にはできません')}
+    if(Math.abs(dh)>D&&!(SC&&SC.on))toast('高さの差より短い距離にはできません')}
   else it[k]=v;return true}
-$('#lightTable').addEventListener('change',e=>{const el=e.target.closest('[data-lt]');if(!el||!applyLT(el))return;commit();drawNote();if(!e.detail)toast('変更しました（取り消せます）')});
-$('#lightTable').addEventListener('input',e=>{const el=e.target.closest('[data-lt]');if(!el||!(SCRUB&&SCRUB.on&&SCRUB.el===el))return;if(applyLT(el))drawNote(true)});
+$('#lightTable').addEventListener('change',e=>{const el=e.target.closest('input[data-lt]');if(!el||!applyLT(el))return;commit();drawNote();toast('変更しました（取り消せます）')});
+$('#lightTable').addEventListener('scrub',e=>{const el=e.target.closest('[data-lt]');if(!el||!applyLT(el,e.detail.v))return;if(e.detail.final){commit();drawNote()}else drawNote(true)});
 $('#lightTable').addEventListener('click',e=>{const c=e.target.closest('[data-pick]');if(!c)return;sel=c.dataset.pick;selD=null;drawNote()});
-/* 数字の欄を左右にドラッグして値を変える（タップは今まで通りキーボード入力） */
-let SCRUB=null;
-document.addEventListener('pointerdown',e=>{const el=e.target.closest&&e.target.closest('input[data-scrub]');if(!el||document.activeElement===el)return;SCRUB={el,x:e.clientX,v:+el.value||0,on:false,id:e.pointerId}});
-document.addEventListener('pointermove',e=>{if(!SCRUB||e.pointerId!==SCRUB.id)return;const el=SCRUB.el;
-  if(!SCRUB.on){if(Math.abs(e.clientX-SCRUB.x)<8)return;SCRUB.on=true;SCRUB.x=e.clientX;el.classList.add('scrubbing');try{el.setPointerCapture(e.pointerId)}catch(_){}}
-  e.preventDefault();let n=SCRUB.v+Math.round((e.clientX-SCRUB.x)/3);
-  if(el.dataset.wrap)n=((n+180)%360+360)%360-180;else n=Math.max(+(el.dataset.min??-1e9),Math.min(+(el.dataset.max??1e9),n));
-  if(String(n)!==el.value){el.value=n;el.dispatchEvent(new Event('input',{bubbles:true}))}},{passive:false});
-function endScrub(e){if(!SCRUB||e.pointerId!==SCRUB.id)return;const s=SCRUB;if(s.on){s.el.classList.remove('scrubbing');s.el.blur();
-    document.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation()},{capture:true,once:true});setTimeout(()=>{SCRUB=null;s.el.dispatchEvent(new CustomEvent('change',{bubbles:true,detail:1}))},0);return}
-  SCRUB=null}
-document.addEventListener('pointerup',endScrub);document.addEventListener('pointercancel',endScrub);
+/* 数字の欄：左右にドラッグで値を変える。タップするとキーボードで打ち込める */
+const sbox=(k,v,o={})=>`<div class="scrub" role="slider" aria-valuenow="${v}" data-sk="${k}" data-v="${v}"${o.min!=null?` data-min="${o.min}"`:''}${o.max!=null?` data-max="${o.max}"`:''}${o.wrap?' data-wrap="1"':''}${o.attr||''}><span>${v}</span><i aria-hidden="true"></i></div>`;
+let SC=null;
+const scFire=(el,v,final)=>el.dispatchEvent(new CustomEvent('scrub',{bubbles:true,detail:{v,final}}));
+const scClamp=(el,n)=>el.dataset.wrap?((n+180)%360+360)%360-180:Math.max(+(el.dataset.min??-1e9),Math.min(+(el.dataset.max??1e9),n));
+function scSet(el,n){el.dataset.v=n;el.setAttribute('aria-valuenow',n);const sp=el.querySelector('span');if(sp)sp.textContent=n}
+function scEdit(el){const sp=el.querySelector('span');if(!sp)return;const inp=document.createElement('input');inp.type='number';inp.inputMode='numeric';inp.value=el.dataset.v;sp.replaceWith(inp);el.classList.add('edit');inp.focus();inp.select();
+  const done=()=>{const n=scClamp(el,Math.round(+inp.value||0));const s2=document.createElement('span');inp.replaceWith(s2);el.classList.remove('edit');scSet(el,n);scFire(el,n,true)};
+  inp.addEventListener('blur',done,{once:true});inp.addEventListener('keydown',ev=>{if(ev.key==='Enter')inp.blur()})}
+document.addEventListener('pointerdown',e=>{const el=e.target.closest&&e.target.closest('.scrub');if(!el||el.classList.contains('edit'))return;SC={el,x:e.clientX,v:+el.dataset.v||0,on:false,id:e.pointerId}});
+document.addEventListener('pointermove',e=>{if(!SC||e.pointerId!==SC.id)return;const el=SC.el;
+  if(!SC.on){if(Math.abs(e.clientX-SC.x)<6)return;SC.on=true;SC.x=e.clientX;el.classList.add('on');try{el.setPointerCapture(e.pointerId)}catch(_){}}
+  e.preventDefault();const n=scClamp(el,SC.v+Math.round((e.clientX-SC.x)/3));if(n!==+el.dataset.v){scSet(el,n);scFire(el,n,false)}},{passive:false});
+document.addEventListener('pointerup',e=>{if(!SC||e.pointerId!==SC.id)return;const s1=SC;SC=null;if(s1.on){s1.el.classList.remove('on');scFire(s1.el,+s1.el.dataset.v,true)}else scEdit(s1.el)});
+document.addEventListener('pointercancel',e=>{if(!SC||e.pointerId!==SC.id)return;const s1=SC;SC=null;if(s1.on){s1.el.classList.remove('on');scFire(s1.el,+s1.el.dataset.v,true)}});
+$('#props').addEventListener('scrub',e=>{const b=e.target.closest('[data-sk]'),it=cur&&cur.items.find(i=>i.id===sel);if(!b||!it)return;it[b.dataset.sk]=e.detail.v;drawNote(true);if(e.detail.final)commit()});
 function drawProps(){
   const el=$('#props');
   if(selD){const d=(cur.draw[selD.view]||[]).find(x=>x.id===selD.id);if(!d){selD=null;el.hidden=true;return}
@@ -865,18 +880,20 @@ function drawProps(){
   const it=cur.items.find(i=>i.id===sel);
   if(!it){el.hidden=true;return}
   el.hidden=false;const t=T[it.type],canRot=ROTK.includes(t.k),canTilt=['light','panel','cam'].includes(t.k),aimable=['light','panel','cam'].includes(t.k);
-  const SCR={h:'data-scrub="1" data-min="0" data-max="320"',w:'data-scrub="1" data-min="5" data-max="1000"',rot:'data-scrub="1" data-wrap="1"',tilt:'data-scrub="1" data-wrap="1"'};
-  const f=(lab,k,v,type='number',cls='')=>`<div class="${cls}"><label>${lab}</label><input type="${type}" ${type==='number'?'inputmode="numeric"':''} ${SCR[k]||''} data-p="${k}" value="${esc(v)}"></div>`;
+  const SO={h:{min:0,max:320},w:{min:5,max:1000},len:{min:5,max:1000},rot:{wrap:1},tilt:{wrap:1}};
+  const f=(lab,k,v,type='number',cls='')=>type==='number'?`<div class="${cls}"><label>${lab}</label>${sbox(k,v,SO[k])}</div>`:`<div class="${cls}"><label>${lab}</label><input type="${type}" data-p="${k}" value="${esc(v)}"></div>`;
+  const wide=['panel','table'].includes(t.k),PRE=t.k==='panel'?[[90,90],[90,180],[110,180],[120,120],[180,180],[240,240],[360,360]]:[];
   el.innerHTML=`<div class="ph"><b>${esc(t.n)}${it.role&&t.k==='light'?'・'+esc(it.role):''}</b>${aimable?'<button id="aimBtn">被写体へ</button>':''}<button id="moreBtn" aria-pressed="${propsOpen}">${propsOpen?'詳細 ▴':'詳細 ▾'}</button><button id="closeProps" aria-label="選択を外す">✕</button></div>
   ${propsOpen?`<div class="pg">
   ${t.k==='light'?`<div><label>役割</label><select data-p="role">${ROLES.map(r=>`<option ${r===it.role?'selected':''}>${r}</option>`).join('')}</select></div>${f('機材名','name',it.name||'','text','w2')}`:''}
   ${f('高さ cm','h',Math.round(it.h))}
-  ${['light','panel','back','win','door','slide','pillar'].includes(t.k)?f('大きさ cm','w',it.w||t.w):''}
+  ${wide?f('幅 cm','w',it.w||t.w)+f(t.k==='table'?'奥行 cm':'長さ cm','len',it.len||t.len||it.w||t.w):['light','back','win','door','slide','pillar','vflat','cloth','object'].includes(t.k)?f('大きさ cm','w',it.w||t.w):''}
   ${canRot?f('向き °','rot',Math.round(it.rot)):''}${canTilt?f('傾き °','tilt',Math.round(it.tilt)):''}
   ${t.k==='light'?f('出力','power',it.power||'','text')+f('色温度 K','k',it.k||'','text'):''}
-  </div><div class="ph" style="margin-top:6px"><span class="small" style="flex:1">↔ 数字は左右にドラッグでも変えられます</span><button id="dupBtn">複製</button><button class="danger" id="delBtn">削除</button></div>`:''}`;
+  </div>${PRE.length?`<div class="chips" id="preBox"><span class="small" style="align-self:center">よく使うサイズ（mm）</span>${PRE.map(([a,b])=>`<button data-pre="${a},${b}" aria-pressed="${(it.w||t.w)===a&&(it.len||t.len||it.w||t.w)===b}">${a*10}×${b*10}</button>`).join('')}</div>`:''}<div class="ph" style="margin-top:6px"><span class="small" style="flex:1">↔ 数字は左右にドラッグ、タップで入力</span><button id="dupBtn">複製</button><button class="danger" id="delBtn">削除</button></div>`:''}`;
   const mb=$('#moreBtn');mb.onclick=()=>{propsOpen=!propsOpen;drawProps()};
-  $$('#props [data-p]').forEach(i=>{i.oninput=()=>{const k=i.dataset.p;it[k]=['h','w','rot','tilt'].includes(k)?(+i.value||0):i.value;drawNote(true);clearTimeout(metaTimer);metaTimer=setTimeout(commit,600)}});
+  const pb=$('#preBox');if(pb)pb.onclick=e=>{const b=e.target.closest('[data-pre]');if(!b)return;const [a,c]=b.dataset.pre.split(',').map(Number);it.w=a;it.len=c;commit();drawNote();toast(`${a*10}×${c*10}にしました`)};
+  $$('#props [data-p]').forEach(i=>{i.oninput=()=>{const k=i.dataset.p;it[k]=i.value;drawNote(true);clearTimeout(metaTimer);metaTimer=setTimeout(commit,600)}});
   const ab=$('#aimBtn');if(ab)ab.onclick=()=>{const a=aimAngles(it);it.rot=a.rot;if(T[it.type].k!=='panel')it.tilt=a.tilt;commit();drawNote();toast('被写体に向けました')};
   if($('#dupBtn'))$('#dupBtn').onclick=()=>{const c={...it,id:uid(),x:Math.min(cur.rw,it.x+40)};cur.items.push(c);sel=c.id;commit();drawNote();toast('複製しました')};
   if($('#delBtn'))$('#delBtn').onclick=()=>{cur.items=cur.items.filter(i=>i!==it);sel=null;commit();drawNote();toast('削除しました（取り消せます）')};
