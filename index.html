@@ -121,7 +121,14 @@ th{font-size:13px;color:var(--sub);font-weight:500}
 .ptitle{display:flex;justify-content:space-between;font-size:13px;color:#555;padding:2px 4px}
 .pal{display:flex;gap:6px;overflow-x:auto;padding:6px 0;scrollbar-width:none}
 .pal button{flex:none}
-.props{position:sticky;bottom:calc(var(--tabH) + 8px);z-index:25;background:#1a1a1a;border:1px solid var(--key);border-radius:14px;padding:10px 12px;box-shadow:0 -6px 24px rgba(0,0,0,.5)}
+.props{position:sticky;bottom:calc(var(--tabH) + 8px);z-index:25;background:#1a1a1a;border:1px solid var(--key);border-radius:14px;padding:6px 8px;box-shadow:0 -6px 24px rgba(0,0,0,.5);max-height:42vh;overflow:auto}
+.props .ph{display:flex;gap:6px;align-items:center}
+.props .ph b{flex:1;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.props .ph button{flex:none;min-height:40px;padding:0 12px;font-size:14px}
+.props .pg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 8px;margin-top:6px}
+.props .pg label{font-size:11px;margin:0 0 2px}
+.props .pg input,.props .pg select{min-height:38px;padding:4px 8px;font-size:16px}
+.props .pg .w2{grid-column:span 2}
 .lights td{text-align:left;white-space:normal}
 .modal{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.92);overflow:auto;padding:calc(var(--safeT) + 12px) 16px calc(16px + var(--safeB))}
 .modal img{width:100%;max-width:900px;display:block;margin:10px auto;border-radius:6px;background:#fff}
@@ -720,9 +727,9 @@ function drawProps(){
   const el=$('#props');
   if(selD){const d=(cur.draw[selD.view]||[]).find(x=>x.id===selD.id);if(!d){selD=null;el.hidden=true;return}
     el.hidden=false;
-    el.innerHTML=`<div class="row" style="align-items:center;margin:0"><b style="flex:1">${d.t==='text'?'文字':'線'}</b><button class="danger" id="delD" style="flex:none">削除</button><button id="closeProps" style="flex:none">閉じる</button></div>
-    ${d.t==='text'?`<div class="row"><div><label>文字</label><input type="text" id="dText" value="${esc(d.text)}"></div></div>`:''}
-    <div class="row"><div><span class="lab">色</span><div class="seg" id="dCol">${[['#222','黒'],['#C62828','赤'],['#0F7C74','青緑'],['#1565C0','青']].map(([c,n])=>`<button data-c="${c}" aria-pressed="${(d.c||'#222')===c}">${n}</button>`).join('')}</div></div></div>`;
+    el.innerHTML=`<div class="ph"><b>${d.t==='text'?'文字':'線'}</b><button class="danger" id="delD">削除</button><button id="closeProps" aria-label="選択を外す">✕</button></div>
+    ${d.t==='text'?`<div style="margin-top:6px"><input type="text" id="dText" value="${esc(d.text)}" style="min-height:38px;font-size:16px"></div>`:''}
+    <div style="margin-top:6px"><div class="seg" id="dCol">${[['#222','黒'],['#C62828','赤'],['#0F7C74','青緑'],['#1565C0','青']].map(([c,n])=>`<button data-c="${c}" aria-pressed="${(d.c||'#222')===c}">${n}</button>`).join('')}</div></div>`;
     const ti=$('#dText');if(ti){ti.oninput=()=>{d.text=ti.value;drawNote(true);clearTimeout(metaTimer);metaTimer=setTimeout(commit,600)};if(d.fresh){delete d.fresh;ti.focus();ti.select()}}
     $('#dCol').onclick=e=>{const b=e.target.closest('button');if(!b)return;d.c=b.dataset.c;commit();drawNote()};
     $('#delD').onclick=()=>{cur.draw[selD.view]=cur.draw[selD.view].filter(x=>x!==d);selD=null;commit();drawNote();toast('削除しました（取り消せます）')};
@@ -730,19 +737,23 @@ function drawProps(){
   const it=cur.items.find(i=>i.id===sel);
   if(!it){el.hidden=true;return}
   el.hidden=false;const t=T[it.type],canRot=ROTK.includes(t.k),canTilt=['light','panel','cam'].includes(t.k),aimable=['light','panel','cam'].includes(t.k);
-  el.innerHTML=`<div class="row" style="align-items:center;margin:0"><b style="flex:1">${esc(t.n)}</b><button id="dupBtn" style="flex:none">複製</button><button class="danger" id="delBtn" style="flex:none">削除</button><button id="closeProps" style="flex:none">閉じる</button></div>
-  <div class="row">${t.k==='light'?`<div><label>役割</label><select data-p="role">${ROLES.map(r=>`<option ${r===it.role?'selected':''}>${r}</option>`).join('')}</select></div><div><label>機材名</label><input type="text" data-p="name" value="${esc(it.name)}" placeholder="例：Profoto D2"></div>`:''}
-  <div><label>高さ cm</label><input type="number" inputmode="numeric" data-p="h" value="${Math.round(it.h)}"></div>
-  ${['light','panel','back','win','door','slide','pillar'].includes(t.k)?`<div><label>大きさ cm</label><input type="number" inputmode="numeric" data-p="w" value="${it.w||t.w}"></div>`:''}
-  ${t.k==='light'?`<div><label>出力</label><input type="text" data-p="power" value="${esc(it.power)}"></div><div><label>色温度 K</label><input type="text" data-p="k" inputmode="numeric" value="${esc(it.k)}"></div>`:''}</div>
-  ${canRot?`<div class="row">${`<div><label>向き（俯瞰図）°</label><input type="number" inputmode="numeric" data-p="rot" value="${Math.round(it.rot)}"></div>`}${canTilt?`<div><label>傾き（立体図）°</label><input type="number" inputmode="numeric" data-p="tilt" value="${Math.round(it.tilt)}"></div>`:''}${aimable?`<div style="flex:none"><button id="aimBtn">被写体に向ける</button></div>`:''}</div>`:''}`;
+  const f=(lab,k,v,type='number',cls='')=>`<div class="${cls}"><label>${lab}</label><input type="${type}" ${type==='number'?'inputmode="numeric"':''} data-p="${k}" value="${esc(v)}"></div>`;
+  el.innerHTML=`<div class="ph"><b>${esc(t.n)}${it.role&&t.k==='light'?'・'+esc(it.role):''}</b>${aimable?'<button id="aimBtn">被写体へ</button>':''}<button id="moreBtn" aria-pressed="${propsOpen}">${propsOpen?'詳細 ▴':'詳細 ▾'}</button><button id="closeProps" aria-label="選択を外す">✕</button></div>
+  ${propsOpen?`<div class="pg">
+  ${t.k==='light'?`<div><label>役割</label><select data-p="role">${ROLES.map(r=>`<option ${r===it.role?'selected':''}>${r}</option>`).join('')}</select></div>${f('機材名','name',it.name||'','text','w2')}`:''}
+  ${f('高さ cm','h',Math.round(it.h))}
+  ${['light','panel','back','win','door','slide','pillar'].includes(t.k)?f('大きさ cm','w',it.w||t.w):''}
+  ${canRot?f('向き °','rot',Math.round(it.rot)):''}${canTilt?f('傾き °','tilt',Math.round(it.tilt)):''}
+  ${t.k==='light'?f('出力','power',it.power||'','text')+f('色温度 K','k',it.k||'','text'):''}
+  </div><div class="ph" style="margin-top:6px;justify-content:flex-end"><button id="dupBtn">複製</button><button class="danger" id="delBtn">削除</button></div>`:''}`;
+  const mb=$('#moreBtn');mb.onclick=()=>{propsOpen=!propsOpen;drawProps()};
   $$('#props [data-p]').forEach(i=>{i.oninput=()=>{const k=i.dataset.p;it[k]=['h','w','rot','tilt'].includes(k)?(+i.value||0):i.value;drawNote(true);clearTimeout(metaTimer);metaTimer=setTimeout(commit,600)}});
   const ab=$('#aimBtn');if(ab)ab.onclick=()=>{const a=aimAngles(it);it.rot=a.rot;if(T[it.type].k!=='panel')it.tilt=a.tilt;commit();drawNote();toast('被写体に向けました')};
-  $('#dupBtn').onclick=()=>{const c={...it,id:uid(),x:Math.min(cur.rw,it.x+40)};cur.items.push(c);sel=c.id;commit();drawNote();toast('複製しました')};
-  $('#delBtn').onclick=()=>{cur.items=cur.items.filter(i=>i!==it);sel=null;commit();drawNote();toast('削除しました（取り消せます）')};
+  if($('#dupBtn'))$('#dupBtn').onclick=()=>{const c={...it,id:uid(),x:Math.min(cur.rw,it.x+40)};cur.items.push(c);sel=c.id;commit();drawNote();toast('複製しました')};
+  if($('#delBtn'))$('#delBtn').onclick=()=>{cur.items=cur.items.filter(i=>i!==it);sel=null;commit();drawNote();toast('削除しました（取り消せます）')};
   $('#closeProps').onclick=()=>{sel=null;drawNote()};
 }
-let mode='move',selD=null;
+let mode='move',selD=null,propsOpen=false;
 const HINTS={move:'機材をドラッグで移動。選ぶと出る青緑の丸をドラッグすると向きが変わります。',pen:'図の上を指でなぞると線が引けます（壁、光の向き、メモなど）。',line:'始点から終点までドラッグすると、まっすぐな線が引けます（壁や窓の位置に）。',text:'文字を置きたい場所をタップしてください。'};
 function setMode(m){mode=m;$$('#modeSeg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===m));$('#modeHint').textContent=HINTS[m]}
 $('#modeSeg').onclick=e=>{const b=e.target.closest('button');if(b)setMode(b.dataset.m)};
