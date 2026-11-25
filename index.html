@@ -119,7 +119,7 @@ th{font-size:13px;color:var(--sub);font-weight:500}
 .ebar .grow{flex:1}
 .ngrid{display:grid;gap:10px}
 .paper{background:var(--paper);color:#222;border-radius:10px;padding:6px}
-.paper svg{display:block;width:100%;height:auto;touch-action:none;user-select:none;-webkit-user-select:none}
+.paper svg{display:block;width:100%;height:auto;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .ptitle{display:flex;justify-content:space-between;font-size:13px;color:#555;padding:2px 4px}
 .pal{display:flex;gap:6px;overflow-x:auto;padding:6px 0;scrollbar-width:none}
 .pal button{flex:none;display:flex;align-items:center;gap:6px;padding:0 12px 0 8px}
@@ -877,6 +877,8 @@ function setMode(m){mode=m;$$('#modeSeg button').forEach(b=>b.setAttribute('aria
 $('#modeSeg').onclick=e=>{const b=e.target.closest('button');if(b)setMode(b.dataset.m)};
 function bindDrag(view){
   const el=$('#'+view);let act=null;
+  /* 機材・線・回す丸に触れたとき、または手書き・直線・文字のときだけ画面のスクロールを止める。何もないところはそのままスクロール */
+  el.addEventListener('touchstart',e=>{if(mode!=='move'||e.target.closest('[data-id],[data-rot],[data-did]'))e.preventDefault()},{passive:false});
   const pt=e=>new DOMPoint(e.clientX,e.clientY).matrixTransform(el.getScreenCTM().inverse());
   const R5=v=>Math.round(v);
   el.addEventListener('pointerdown',e=>{
