@@ -218,8 +218,10 @@ th{font-size:13px;color:var(--sub);font-weight:500}
       <button id="redoBtn" aria-label="やり直す">↷</button>
       <button class="primary" id="sheetBtn">ノートを見る</button>
     </div>
-    <div class="seg" id="palSeg" role="group" aria-label="機材の種類"><button data-g="light" aria-pressed="true">ライト</button><button data-g="mod" aria-pressed="false">レフ・幕</button><button data-g="set" aria-pressed="false">人・カメラ・背景</button></div>
+    <div class="seg" id="palSeg" role="group" aria-label="機材の種類"><button data-g="light" aria-pressed="true">ライト</button><button data-g="mod" aria-pressed="false">レフ・幕</button><button data-g="room" aria-pressed="false">建具</button><button data-g="set" aria-pressed="false">人・背景</button></div>
     <div class="pal" id="palette"></div>
+    <div class="seg" id="modeSeg" role="group" aria-label="図の操作"><button data-m="move" aria-pressed="true">動かす</button><button data-m="pen" aria-pressed="false">手書き</button><button data-m="line" aria-pressed="false">直線</button><button data-m="text" aria-pressed="false">文字</button></div>
+    <p class="small" id="modeHint" style="margin:4px 2px">機材をドラッグで移動。選ぶと出る青緑の丸をドラッグすると向きが変わります。</p>
     <div class="ngrid">
       <div class="paper"><div class="ptitle"><span>俯瞰図（上から）</span><span>ドラッグで位置</span></div><svg id="top" aria-label="俯瞰図"></svg></div>
       <div class="paper"><div class="ptitle"><span>立体図（横から）</span><span>ドラッグで高さ・前後</span></div><svg id="side" aria-label="立体図"></svg></div>
@@ -572,7 +574,8 @@ const T={
   para:{n:'パラ',k:'light',g:'light',m:'umb',w:177,h:180},umbrella:{n:'アンブレラ',k:'light',g:'light',m:'umb',w:100,h:180},beauty:{n:'ビューティーボックス',k:'light',g:'light',m:'dish',w:55,h:190},
   strobe:{n:'標準リフレクター',k:'light',g:'light',m:'refl',w:20,h:170},ring:{n:'リングフラッシュ',k:'light',g:'light',m:'ring',w:40,h:140},balloon:{n:'バルーン',k:'light',g:'light',m:'ball',w:80,h:200},
   led:{n:'LEDパネル',k:'light',g:'light',m:'box',w:30,h:160},clip:{n:'クリップオン',k:'light',g:'light',m:'refl',w:8,h:180},
-  refl:{n:'レフ板',k:'panel',g:'mod',w:90,h:80,c:'#ffffff'},flag:{n:'黒レフ',k:'panel',g:'mod',w:90,h:120,c:'#222'},scrim:{n:'トレペ・紗幕',k:'panel',g:'mod',w:120,h:150,c:'#d9e6f2'},window:{n:'窓',k:'win',g:'mod',w:150,h:200},
+  refl:{n:'レフ板',k:'panel',g:'mod',w:90,h:80,c:'#ffffff'},flag:{n:'黒レフ',k:'panel',g:'mod',w:90,h:120,c:'#222'},scrim:{n:'トレペ・紗幕',k:'panel',g:'mod',w:120,h:150,c:'#d9e6f2'},
+  window:{n:'窓',k:'win',g:'room',w:150,h:200},door:{n:'ドア（開き戸）',k:'door',g:'room',w:80,h:200},slide:{n:'引き戸',k:'slide',g:'room',w:160,h:200},pillar:{n:'柱',k:'pillar',g:'room',w:30,h:270},
   camera:{n:'カメラ',k:'cam',g:'set',w:20,h:140},person:{n:'被写体',k:'person',g:'set',w:50,h:150},backdrop:{n:'背景',k:'back',g:'set',w:270,h:270}
 };
 const ROLES=['メイン','フィル','逆目','バックとばし','アクセント','—'];
@@ -593,7 +596,7 @@ const saveNotes=()=>store.set('lk_notes',notes);
 const snap=()=>JSON.stringify(cur);
 function commit(){hist.push(lastSnap);if(hist.length>60)hist.shift();fut=[];lastSnap=snap();saveNotes();syncUndo()}
 function syncUndo(){$('#undoBtn').disabled=!hist.length;$('#redoBtn').disabled=!fut.length}
-function restore(s){const o=JSON.parse(s);Object.keys(cur).forEach(k=>delete cur[k]);Object.assign(cur,o);lastSnap=s;saveNotes();sel=null;fillMeta();drawNote()}
+function restore(s){const o=JSON.parse(s);Object.keys(cur).forEach(k=>delete cur[k]);Object.assign(cur,o);cur.draw=cur.draw||{top:[],side:[]};lastSnap=s;saveNotes();sel=null;selD=null;fillMeta();drawNote()}
 $('#undoBtn').onclick=()=>{if(!hist.length)return;fut.push(snap());restore(hist.pop());syncUndo();toast('取り消しました')};
 $('#redoBtn').onclick=()=>{if(!fut.length)return;hist.push(snap());restore(fut.pop());syncUndo();toast('やり直しました')};
 const lightish=it=>['light','panel'].includes(T[it.type].k);
@@ -618,7 +621,7 @@ $('#delShot').onclick=e=>{if(!e.target.dataset.sure){e.target.dataset.sure=1;e.t
 $('#backList').onclick=()=>{$('#noteEdit').hidden=true;$('#noteList').hidden=false;drawList();window.scrollTo(0,0)};
 $('#delNote').onclick=e=>{if(!e.target.dataset.sure){e.target.dataset.sure=1;e.target.textContent='もう一度押すと削除（元に戻せません）';return}delete e.target.dataset.sure;e.target.textContent='このノートを削除';notes=notes.filter(n=>n!==cur);saveNotes();$('#backList').click();toast('ノートを削除しました')};
 function fillMeta(){$$('[data-n]').forEach(i=>i.value=cur[i.dataset.n]??'')}
-function openNote(id){cur=notes.find(n=>n.id===id);sel=null;hist=[];fut=[];lastSnap=snap();syncUndo();$('#noteList').hidden=true;$('#noteEdit').hidden=false;fillMeta();drawPalette();drawNote();window.scrollTo(0,0)}
+function openNote(id){cur=notes.find(n=>n.id===id);cur.draw=cur.draw||{top:[],side:[]};sel=null;selD=null;setMode('move');hist=[];fut=[];lastSnap=snap();syncUndo();$('#noteList').hidden=true;$('#noteEdit').hidden=false;fillMeta();drawPalette();drawNote();window.scrollTo(0,0)}
 let metaTimer=null;
 $$('[data-n]').forEach(i=>i.oninput=()=>{const k=i.dataset.n;cur[k]=(k==='rw'||k==='rd')?Math.max(200,+i.value||0):i.value;drawNote(true);clearTimeout(metaTimer);metaTimer=setTimeout(commit,600)});
 function drawPalette(){
@@ -629,7 +632,8 @@ $('#palSeg').onclick=e=>{const b=e.target.closest('button');if(!b)return;group=b
 $('#palette').onclick=e=>{const k=e.target.dataset.add;if(!k)return;const t=T[k],p=subj();
   const it={id:uid(),type:k,x:Math.max(30,Math.min(cur.rw-30,(p?p.x:cur.rw/2)-120)),y:Math.max(30,(p?p.y:cur.rd/2)-60),h:t.h};
   if(t.k==='light')it.role=cur.items.some(i=>i.role==='メイン')?'フィル':'メイン';
-  cur.items.push(it);sel=it.id;commit();drawNote();toast(`${t.n}を置きました。ドラッグで動かせます`)};
+  if(['light','panel','cam'].includes(t.k)){const a=aimAngles(it);it.rot=a.rot;it.tilt=t.k==='panel'?0:a.tilt}
+  cur.items.push(it);sel=it.id;selD=null;setMode('move');commit();drawNote();toast(`${t.n}を置きました。青緑の丸で向きを変えられます`)};
 const subj=()=>cur.items.find(i=>i.type==='person');
 const HMAX=320;
 function symbol(it,view,col){
@@ -649,29 +653,56 @@ function symbol(it,view,col){
   if(t.k==='panel')s+=`<rect x="-4" y="${-w/2}" width="8" height="${w}" fill="${t.c}" stroke="${col}" stroke-width="2"/>`;
   return s;
 }
+function aimAngles(it){const p=subj();if(!p)return {rot:it.rot??-90,tilt:it.tilt??0};
+  const top=Math.atan2(-(p.y-it.y),p.x-it.x)/rad,side=Math.atan2(-((p.h-12)-it.h),p.y-it.y)/rad;return {rot:Math.round(top),tilt:Math.round(side)}}
+const ROTK=['light','panel','cam','back','win','door','slide'];
+function norm(it){const t=T[it.type];if(!ROTK.includes(t.k))return;
+  if(it.rot==null||it.tilt==null){if(['back','win','door','slide'].includes(t.k)){if(it.rot==null)it.rot=0;if(it.tilt==null)it.tilt=0}else{const a=aimAngles(it);if(it.rot==null)it.rot=a.rot;if(it.tilt==null)it.tilt=t.k==='panel'?(a.tilt>-90&&a.tilt<90?0:180):a.tilt}}}
 function renderView(view,thumb){
   const W=view==='top'?cur.rw:cur.rd,H=view==='top'?cur.rd:HMAX;
   const P=it=>view==='top'?[it.x,cur.rd-it.y]:[it.y,HMAX-it.h];
-  const p=subj(),tgt=p?P(p):[W/2,H/2];if(p&&view==='side')tgt[1]=HMAX-p.h+12;
   let o=`<rect x="0" y="0" width="${W}" height="${H}" fill="#fff"/>`;
   for(let i=50;i<W;i+=50)o+=`<line x1="${i}" y1="0" x2="${i}" y2="${H}" stroke="${i%100?'#eee':'#ddd'}"/>`;
   for(let j=50;j<H;j+=50)o+=`<line x1="0" y1="${H-j}" x2="${W}" y2="${H-j}" stroke="${j%100?'#eee':'#ddd'}"/>`;
   o+=`<rect x="1" y="1" width="${W-2}" height="${H-2}" fill="none" stroke="#999" stroke-width="2"/>`;
   if(view==='side')o+=`<line x1="0" y1="${HMAX}" x2="${W}" y2="${HMAX}" stroke="#555" stroke-width="3"/>`;
   if(!thumb)o+=`<text x="${W-8}" y="${H-10}" font-size="16" fill="#999" text-anchor="end">1マス50cm</text>`;
+  const D=(cur.draw&&cur.draw[view])||[];
+  for(const d of D){const on=!thumb&&selD&&selD.id===d.id,col=on?C.pkey:(d.c||'#222');
+    if(d.t==='text')continue;
+    const pts=d.pts.map(q=>q.join(',')).join(' ');
+    o+=`<g data-did="${d.id}"><polyline points="${pts}" fill="none" stroke="transparent" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="${d.w||4}" stroke-linecap="round" stroke-linejoin="round"/></g>`}
   const items=[...cur.items].sort((a,b)=>(a.id===sel)-(b.id===sel));
   for(const it of items){
-    const t=T[it.type],[X,Y]=P(it),col=(!thumb&&it.id===sel)?C.pkey:'#222';let g='';
-    if(view==='side'&&!['back','win','person'].includes(t.k))g+=`<line x1="${X}" y1="${Y}" x2="${X}" y2="${HMAX}" stroke="#888" stroke-width="2"/>`;
-    if(lightish(it)){const ang=(view==='side'&&t.k==='panel')?(tgt[0]>=X?0:180):Math.atan2(tgt[1]-Y,tgt[0]-X)/rad;g+=`<g transform="translate(${X} ${Y}) rotate(${ang})">${symbol(it,view,col)}</g>`}
-    else if(t.k==='cam'){const ang=Math.atan2(tgt[1]-Y,tgt[0]-X)/rad;g+=`<g transform="translate(${X} ${Y}) rotate(${ang})"><rect x="-16" y="-11" width="22" height="22" rx="3" fill="${col}"/><rect x="6" y="-7" width="14" height="14" fill="${col}"/></g>`}
+    norm(it);const t=T[it.type],[X,Y]=P(it),on=!thumb&&it.id===sel,col=on?C.pkey:'#222',w=it.w||t.w;let g='';
+    const ang=view==='top'?it.rot:it.tilt;
+    if(view==='side'&&['light','panel','cam'].includes(t.k))g+=`<line x1="${X}" y1="${Y}" x2="${X}" y2="${HMAX}" stroke="#888" stroke-width="2"/>`;
+    if(lightish(it))g+=`<g transform="translate(${X} ${Y}) rotate(${ang})">${symbol(it,view,col)}</g>`;
+    else if(t.k==='cam')g+=`<g transform="translate(${X} ${Y}) rotate(${ang})"><rect x="-16" y="-11" width="22" height="22" rx="3" fill="${col}"/><rect x="6" y="-7" width="14" height="14" fill="${col}"/></g>`;
     else if(t.k==='person')g+=view==='top'?`<ellipse cx="${X}" cy="${Y}" rx="25" ry="14" fill="#fff" stroke="${col}" stroke-width="3"/><circle cx="${X}" cy="${Y}" r="11" fill="${col}"/>`:`<line x1="${X}" y1="${Y+24}" x2="${X}" y2="${HMAX}" stroke="${col}" stroke-width="10" stroke-linecap="round"/><circle cx="${X}" cy="${Y+10}" r="13" fill="${col}"/>`;
-    else if(t.k==='back')g+=view==='top'?`<rect x="${X-(it.w||t.w)/2}" y="${Y-5}" width="${it.w||t.w}" height="10" fill="#bbb" stroke="${col}" stroke-width="2"/>`:`<rect x="${X-5}" y="${Y}" width="10" height="${HMAX-Y}" fill="#bbb" stroke="${col}" stroke-width="2"/>`;
-    else if(t.k==='win')g+=view==='top'?`<rect x="${X-(it.w||t.w)/2}" y="${Y-6}" width="${it.w||t.w}" height="12" fill="#cfe8ff" stroke="${col}" stroke-width="2"/>`:`<rect x="${X-6}" y="${Y}" width="12" height="${Math.min(140,HMAX-Y)}" fill="#cfe8ff" stroke="${col}" stroke-width="2"/>`;
+    else if(t.k==='pillar')g+=view==='top'?`<rect x="${X-w/2}" y="${Y-w/2}" width="${w}" height="${w}" fill="#888" stroke="${col}" stroke-width="2"/>`:`<rect x="${X-w/2}" y="${Y}" width="${w}" height="${HMAX-Y}" fill="#ccc" stroke="${col}" stroke-width="2"/>`;
+    else if(view==='top'){
+      let sh='';
+      if(t.k==='back')sh=`<rect x="${-w/2}" y="-5" width="${w}" height="10" fill="#bbb" stroke="${col}" stroke-width="2"/>`;
+      if(t.k==='win')sh=`<rect x="${-w/2}" y="-6" width="${w}" height="12" fill="#cfe8ff" stroke="${col}" stroke-width="2"/><line x1="${-w/2}" y1="0" x2="${w/2}" y2="0" stroke="${col}"/>`;
+      if(t.k==='door')sh=`<line x1="${-w/2}" y1="0" x2="${-w/2}" y2="${-w}" stroke="${col}" stroke-width="4"/><path d="M${-w/2} ${-w}A${w} ${w} 0 0 1 ${w/2} 0" fill="none" stroke="${col}" stroke-width="1.5" stroke-dasharray="5 4"/><rect x="${-w/2}" y="-3" width="${w}" height="6" fill="#fff" stroke="${col}"/>`;
+      if(t.k==='slide')sh=`<rect x="${-w/2}" y="-8" width="${w/2+6}" height="7" fill="#e8dcc8" stroke="${col}" stroke-width="2"/><rect x="-6" y="1" width="${w/2+6}" height="7" fill="#e8dcc8" stroke="${col}" stroke-width="2"/>`;
+      g+=`<g transform="translate(${X} ${Y}) rotate(${ang})">${sh}</g>`;
+    }else{
+      if(t.k==='back')g+=`<rect x="${X-5}" y="${Y}" width="10" height="${HMAX-Y}" fill="#bbb" stroke="${col}" stroke-width="2"/>`;
+      if(t.k==='win')g+=`<rect x="${X-6}" y="${Y}" width="12" height="${Math.min(140,HMAX-Y)}" fill="#cfe8ff" stroke="${col}" stroke-width="2"/>`;
+      if(t.k==='door'||t.k==='slide')g+=`<rect x="${X-6}" y="${Y}" width="12" height="${HMAX-Y}" fill="${t.k==='door'?'#fff':'#e8dcc8'}" stroke="${col}" stroke-width="2"/>`;
+    }
     if(!thumb){const nm=it.role&&it.role!=='—'?it.role:t.n,lab=view==='top'?nm:`${nm} ${Math.round(it.h)}`;
-      g+=`<text x="${X}" y="${Math.max(20,Y+(view==='top'?-28:-20))}" font-size="20" text-anchor="middle" fill="${col}" font-weight="${it.id===sel?700:500}" paint-order="stroke" stroke="#fff" stroke-width="4">${esc(lab)}</text>`}
+      g+=`<text x="${X}" y="${Math.max(20,Y+(view==='top'?-28:-20))}" font-size="20" text-anchor="middle" fill="${col}" font-weight="${on?700:500}" paint-order="stroke" stroke="#fff" stroke-width="4">${esc(lab)}</text>`}
     o+=`<g data-id="${it.id}" style="cursor:grab">${g}${thumb?'':`<circle cx="${X}" cy="${Y}" r="32" fill="transparent"/>`}</g>`;
+    if(on&&ROTK.includes(t.k)&&!(view==='side'&&['back','win','door','slide'].includes(t.k))){
+      const R=view==='top'?80:64,hx=X+R*Math.cos(ang*rad),hy=Y+R*Math.sin(ang*rad);
+      o+=`<line x1="${X}" y1="${Y}" x2="${hx}" y2="${hy}" stroke="${C.pkey}" stroke-width="2"/><g data-rot="${it.id}" style="cursor:grab"><circle cx="${hx}" cy="${hy}" r="26" fill="transparent"/><circle cx="${hx}" cy="${hy}" r="13" fill="${C.key}" stroke="#fff" stroke-width="3"/></g>`;
+    }
   }
+  for(const d of D){if(d.t!=='text')continue;const on=!thumb&&selD&&selD.id===d.id;
+    o+=`<g data-did="${d.id}" style="cursor:grab"><text x="${d.x}" y="${d.y}" font-size="${d.s||22}" fill="${on?C.pkey:(d.c||'#222')}" font-weight="${on?700:500}" paint-order="stroke" stroke="#fff" stroke-width="4">${esc(d.text)}</text></g>`}
   return {svg:o,W,H};
 }
 function drawNote(skipProps){
@@ -686,28 +717,63 @@ function drawLights(){
   $('#lightTable').innerHTML=t;
 }
 function drawProps(){
-  const it=cur.items.find(i=>i.id===sel),el=$('#props');
+  const el=$('#props');
+  if(selD){const d=(cur.draw[selD.view]||[]).find(x=>x.id===selD.id);if(!d){selD=null;el.hidden=true;return}
+    el.hidden=false;
+    el.innerHTML=`<div class="row" style="align-items:center;margin:0"><b style="flex:1">${d.t==='text'?'文字':'線'}</b><button class="danger" id="delD" style="flex:none">削除</button><button id="closeProps" style="flex:none">閉じる</button></div>
+    ${d.t==='text'?`<div class="row"><div><label>文字</label><input type="text" id="dText" value="${esc(d.text)}"></div></div>`:''}
+    <div class="row"><div><span class="lab">色</span><div class="seg" id="dCol">${[['#222','黒'],['#C62828','赤'],['#0F7C74','青緑'],['#1565C0','青']].map(([c,n])=>`<button data-c="${c}" aria-pressed="${(d.c||'#222')===c}">${n}</button>`).join('')}</div></div></div>`;
+    const ti=$('#dText');if(ti){ti.oninput=()=>{d.text=ti.value;drawNote(true);clearTimeout(metaTimer);metaTimer=setTimeout(commit,600)};if(d.fresh){delete d.fresh;ti.focus();ti.select()}}
+    $('#dCol').onclick=e=>{const b=e.target.closest('button');if(!b)return;d.c=b.dataset.c;commit();drawNote()};
+    $('#delD').onclick=()=>{cur.draw[selD.view]=cur.draw[selD.view].filter(x=>x!==d);selD=null;commit();drawNote();toast('削除しました（取り消せます）')};
+    $('#closeProps').onclick=()=>{selD=null;drawNote()};return}
+  const it=cur.items.find(i=>i.id===sel);
   if(!it){el.hidden=true;return}
-  el.hidden=false;const t=T[it.type];
+  el.hidden=false;const t=T[it.type],canRot=ROTK.includes(t.k),canTilt=['light','panel','cam'].includes(t.k),aimable=['light','panel','cam'].includes(t.k);
   el.innerHTML=`<div class="row" style="align-items:center;margin:0"><b style="flex:1">${esc(t.n)}</b><button id="dupBtn" style="flex:none">複製</button><button class="danger" id="delBtn" style="flex:none">削除</button><button id="closeProps" style="flex:none">閉じる</button></div>
   <div class="row">${t.k==='light'?`<div><label>役割</label><select data-p="role">${ROLES.map(r=>`<option ${r===it.role?'selected':''}>${r}</option>`).join('')}</select></div><div><label>機材名</label><input type="text" data-p="name" value="${esc(it.name)}" placeholder="例：Profoto D2"></div>`:''}
   <div><label>高さ cm</label><input type="number" inputmode="numeric" data-p="h" value="${Math.round(it.h)}"></div>
-  ${['light','panel','back','win'].includes(t.k)?`<div><label>大きさ cm</label><input type="number" inputmode="numeric" data-p="w" value="${it.w||t.w}"></div>`:''}
-  ${t.k==='light'?`<div><label>出力</label><input type="text" data-p="power" value="${esc(it.power)}"></div><div><label>色温度 K</label><input type="text" data-p="k" inputmode="numeric" value="${esc(it.k)}"></div>`:''}</div>`;
-  $$('#props [data-p]').forEach(i=>{i.oninput=()=>{const k=i.dataset.p;it[k]=(k==='h'||k==='w')?(+i.value||0):i.value;drawNote(true);clearTimeout(metaTimer);metaTimer=setTimeout(commit,600)}});
+  ${['light','panel','back','win','door','slide','pillar'].includes(t.k)?`<div><label>大きさ cm</label><input type="number" inputmode="numeric" data-p="w" value="${it.w||t.w}"></div>`:''}
+  ${t.k==='light'?`<div><label>出力</label><input type="text" data-p="power" value="${esc(it.power)}"></div><div><label>色温度 K</label><input type="text" data-p="k" inputmode="numeric" value="${esc(it.k)}"></div>`:''}</div>
+  ${canRot?`<div class="row">${`<div><label>向き（俯瞰図）°</label><input type="number" inputmode="numeric" data-p="rot" value="${Math.round(it.rot)}"></div>`}${canTilt?`<div><label>傾き（立体図）°</label><input type="number" inputmode="numeric" data-p="tilt" value="${Math.round(it.tilt)}"></div>`:''}${aimable?`<div style="flex:none"><button id="aimBtn">被写体に向ける</button></div>`:''}</div>`:''}`;
+  $$('#props [data-p]').forEach(i=>{i.oninput=()=>{const k=i.dataset.p;it[k]=['h','w','rot','tilt'].includes(k)?(+i.value||0):i.value;drawNote(true);clearTimeout(metaTimer);metaTimer=setTimeout(commit,600)}});
+  const ab=$('#aimBtn');if(ab)ab.onclick=()=>{const a=aimAngles(it);it.rot=a.rot;if(T[it.type].k!=='panel')it.tilt=a.tilt;commit();drawNote();toast('被写体に向けました')};
   $('#dupBtn').onclick=()=>{const c={...it,id:uid(),x:Math.min(cur.rw,it.x+40)};cur.items.push(c);sel=c.id;commit();drawNote();toast('複製しました')};
   $('#delBtn').onclick=()=>{cur.items=cur.items.filter(i=>i!==it);sel=null;commit();drawNote();toast('削除しました（取り消せます）')};
   $('#closeProps').onclick=()=>{sel=null;drawNote()};
 }
+let mode='move',selD=null;
+const HINTS={move:'機材をドラッグで移動。選ぶと出る青緑の丸をドラッグすると向きが変わります。',pen:'図の上を指でなぞると線が引けます（壁、光の向き、メモなど）。',line:'始点から終点までドラッグすると、まっすぐな線が引けます（壁や窓の位置に）。',text:'文字を置きたい場所をタップしてください。'};
+function setMode(m){mode=m;$$('#modeSeg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===m));$('#modeHint').textContent=HINTS[m]}
+$('#modeSeg').onclick=e=>{const b=e.target.closest('button');if(b)setMode(b.dataset.m)};
 function bindDrag(view){
-  const el=$('#'+view);let drag=null,moved=false;
+  const el=$('#'+view);let act=null;
   const pt=e=>new DOMPoint(e.clientX,e.clientY).matrixTransform(el.getScreenCTM().inverse());
-  el.addEventListener('pointerdown',e=>{const g=e.target.closest('[data-id]');if(!g){if(sel){sel=null;drawNote()}return}sel=g.dataset.id;drag=cur.items.find(i=>i.id===sel);moved=false;el.setPointerCapture(e.pointerId);drawNote()});
-  el.addEventListener('pointermove',e=>{if(!drag)return;const q=pt(e);moved=true;
-    if(view==='top'){drag.x=Math.round(Math.max(0,Math.min(cur.rw,q.x))/5)*5;drag.y=Math.round(Math.max(0,Math.min(cur.rd,cur.rd-q.y))/5)*5}
-    else{drag.y=Math.round(Math.max(0,Math.min(cur.rd,q.x))/5)*5;drag.h=Math.round(Math.max(0,Math.min(HMAX,HMAX-q.y))/5)*5}
+  const R5=v=>Math.round(v);
+  el.addEventListener('pointerdown',e=>{
+    const q=pt(e);cur.draw=cur.draw||{top:[],side:[]};cur.draw[view]=cur.draw[view]||[];
+    if(mode==='pen'||mode==='line'){const d={id:uid(),pts:[[R5(q.x),R5(q.y)],[R5(q.x),R5(q.y)]],c:'#222'};cur.draw[view].push(d);act={k:mode,d};sel=null;selD=null;el.setPointerCapture(e.pointerId);return}
+    if(mode==='text'){const d={id:uid(),t:'text',x:R5(q.x),y:R5(q.y),text:'メモ',c:'#222',fresh:true};cur.draw[view].push(d);sel=null;selD={view,id:d.id};commit();setMode('move');drawNote();return}
+    const r=e.target.closest('[data-rot]');
+    if(r){act={k:'rot',it:cur.items.find(i=>i.id===r.dataset.rot)};el.setPointerCapture(e.pointerId);return}
+    const g=e.target.closest('[data-id]');
+    if(g){sel=g.dataset.id;selD=null;act={k:'item',it:cur.items.find(i=>i.id===sel),moved:false};el.setPointerCapture(e.pointerId);drawNote();return}
+    const dg=e.target.closest('[data-did]');
+    if(dg){sel=null;selD={view,id:dg.dataset.did};const d=cur.draw[view].find(x=>x.id===dg.dataset.did);act={k:'dmove',d,q0:q,orig:JSON.parse(JSON.stringify(d)),moved:false};el.setPointerCapture(e.pointerId);drawNote();return}
+    if(sel||selD){sel=null;selD=null;drawNote()}
+  });
+  el.addEventListener('pointermove',e=>{if(!act)return;const q=pt(e);
+    if(act.k==='pen'){const L=act.d.pts[act.d.pts.length-1];if(Math.hypot(q.x-L[0],q.y-L[1])>4)act.d.pts.push([R5(q.x),R5(q.y)]);drawNote(true);return}
+    if(act.k==='line'){act.d.pts[1]=[R5(q.x),R5(q.y)];drawNote(true);return}
+    if(act.k==='rot'){const it=act.it,X=view==='top'?it.x:it.y,Y=view==='top'?cur.rd-it.y:HMAX-it.h;let a=Math.round(Math.atan2(q.y-Y,q.x-X)/rad/5)*5;if(view==='top')it.rot=a;else it.tilt=a;act.moved=true;drawNote(true);return}
+    if(act.k==='dmove'){const dx=q.x-act.q0.x,dy=q.y-act.q0.y;act.moved=true;if(act.d.t==='text'){act.d.x=R5(act.orig.x+dx);act.d.y=R5(act.orig.y+dy)}else act.d.pts=act.orig.pts.map(([x,y])=>[R5(x+dx),R5(y+dy)]);drawNote(true);return}
+    const d=act.it;act.moved=true;
+    if(view==='top'){d.x=Math.round(Math.max(0,Math.min(cur.rw,q.x))/5)*5;d.y=Math.round(Math.max(0,Math.min(cur.rd,cur.rd-q.y))/5)*5}
+    else{d.y=Math.round(Math.max(0,Math.min(cur.rd,q.x))/5)*5;d.h=Math.round(Math.max(0,Math.min(HMAX,HMAX-q.y))/5)*5}
     drawNote(true)});
-  const end=()=>{if(drag){drag=null;if(moved)commit();drawProps()}};
+  const end=()=>{if(!act)return;const a=act;act=null;
+    if(a.k==='pen'||a.k==='line'){const p=a.d.pts;if(p.length<2||Math.hypot(p[p.length-1][0]-p[0][0],p[p.length-1][1]-p[0][1])<4&&p.length<4){cur.draw[view]=cur.draw[view].filter(x=>x!==a.d);drawNote();return}commit();drawNote();return}
+    if(a.moved||a.k==='rot')commit();drawProps();drawNote(true)};
   el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
 }
 bindDrag('top');bindDrag('side');
@@ -734,7 +800,7 @@ function buildSheet(){
   img.onload=()=>{const c=document.createElement('canvas');c.width=Wd*2;c.height=Ht*2;const x=c.getContext('2d');x.scale(2,2);x.drawImage(img,0,0);try{$('#sheetImg').src=c.toDataURL('image/png')}catch(e){$('#sheetImg').src=img.src}};
   img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(o);
 }
-$('#sheetBtn').onclick=()=>{sel=null;drawNote();buildSheet();$('#sheet').hidden=false};
+$('#sheetBtn').onclick=()=>{sel=null;selD=null;drawNote();buildSheet();$('#sheet').hidden=false};
 $('#markChk').onchange=buildSheet;
 $('#closeSheet').onclick=()=>$('#sheet').hidden=true;
 $('#copyBtn').onclick=async()=>{try{await navigator.clipboard.writeText(sheetText());toast('文章をコピーしました。LINEなどに貼り付けられます')}catch(err){toast('コピーできませんでした')}};
