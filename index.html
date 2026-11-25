@@ -654,49 +654,51 @@ $('#palette').onclick=e=>{const bt=e.target.closest('[data-add]');if(!bt)return;
 const subj=()=>cur.items.find(i=>i.type==='person');
 const HMAX=320;
 let GK='g0';
-const DEFS=()=>`<defs><linearGradient id="bm${GK}" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#FFB020" stop-opacity=".32"/><stop offset="1" stop-color="#FFB020" stop-opacity="0"/></linearGradient><radialGradient id="glow${GK}"><stop offset=".45" stop-color="#FFB020" stop-opacity=".35"/><stop offset="1" stop-color="#FFB020" stop-opacity="0"/></radialGradient><pattern id="hatch${GK}" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" stroke="#8fb0cf" stroke-width="1.6"/></pattern></defs>`;
-const SW='stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"';
+const DEFS=()=>`<defs><linearGradient id="bm${GK}" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#FFB020" stop-opacity=".32"/><stop offset="1" stop-color="#FFB020" stop-opacity="0"/></linearGradient><radialGradient id="glow${GK}"><stop offset=".45" stop-color="#FFB020" stop-opacity=".35"/><stop offset="1" stop-color="#FFB020" stop-opacity="0"/></radialGradient><pattern id="hatch${GK}" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" stroke="#9a9a9a" stroke-width="1.2"/></pattern></defs>`;
+const SW='stroke-width="2" stroke-linejoin="round" stroke-linecap="round"';
 /* 機材の描き方のきまり（デザインのルール）
    塗り＝機械（ヘッド・カメラ・スタンド） / 白抜き＋線＝光を整える道具 / 太い線＝光が出る面
    斜線＝光を通す布 / 黒＝光を止める / オレンジのぼかし＝光の広がり（太陽色と同じ意味）
    線は2.5、光の面は5、角丸は3〜5でそろえる */
 let SHOWBEAM=store.get('lk_beam',true);
 const BEAM={box:26,octa:30,strip:10,led:16,umb:28,para:20,dish:16,refl:10,clip:8,fres:6,kino:20,bare:0,sat:24,ring:12,ball:0};
-function head(col,s=1){return `<rect x="${-19*s}" y="${-8*s}" width="${17*s}" height="${16*s}" rx="${4*s}" fill="${col}"/><rect x="${-23*s}" y="${-3*s}" width="${5*s}" height="${6*s}" rx="1.5" fill="${col}"/>`}
+/* 図解スタイル：白地に細い線で描く。塗りは「光を止めるもの（黒レフ・黒布）」と光の向きの矢印だけ。
+   外形の線2、細部の線1、光の出る面3.5。角はすべて丸める */
+const LW='stroke-width="2" stroke-linejoin="round" stroke-linecap="round"',DW='stroke-width="1" stroke-linecap="round"';
+function head(col,s=1){return `<path d="M${-6*s} ${-8*s}L${-15*s} ${-4.5*s}V${4.5*s}L${-6*s} ${8*s}Z" fill="#fff" stroke="${col}" ${LW}/><rect x="${-20*s}" y="${-3.5*s}" width="${5*s}" height="${7*s}" rx="1.5" fill="#fff" stroke="${col}" ${LW}/>`}
 function symbol(it,view,col){
   const t=T[it.type],w=it.w||t.w,icon=view==='icon';let s='',b='',F=0;
-  const L='stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"',FACE=`stroke="${col}" stroke-width="5" stroke-linecap="round"`;
+  const FACE=`stroke="${col}" stroke-width="3.5" stroke-linecap="round"`,O=`fill="#fff" stroke="${col}" ${LW}`;
   if(t.k==='light'){
     const sw=view==='side'?(t.sw||w):w,hw=Math.max(5,sw/2),len=view==='side'?80:110;
+    const bowl=(d,ribs)=>{let r=`<path d="M${d} ${-hw}A${d} ${hw} 0 0 0 ${d} ${hw}Z" ${O}/>`;for(const k of ribs)r+=`<line x1="0" y1="0" x2="${d}" y2="${hw*k}" stroke="${col}" ${DW} opacity=".55"/>`;return r};
     switch(t.m){
-    case 'box':case 'strip':{const d=t.m==='strip'?(icon?12:24):Math.min(46,Math.max(22,sw*0.36));F=d;
-      s=head(col)+`<path d="M-2 -8L${d} ${-hw}V${hw}L-2 8Z" fill="#fff" stroke="${col}" ${L}/><line x1="${d*0.6}" y1="${-hw*0.62}" x2="${d*0.6}" y2="${hw*0.62}" stroke="${col}" stroke-width="1.2" stroke-dasharray="3 3" opacity=".5"/><line x1="${d}" y1="${-hw}" x2="${d}" y2="${hw}" ${FACE}/>`;break}
-    case 'octa':{const d=Math.min(50,Math.max(24,sw*0.38)),e=hw*0.42,bulge=hw*0.14;F=d+bulge;
-      s=head(col)+`<path d="M-2 -8L${d} ${-hw}L${d+bulge} ${-e}L${d+bulge} ${e}L${d} ${hw}L-2 8Z" fill="#fff" stroke="${col}" ${L}/><polyline points="${d},${-hw} ${d+bulge},${-e} ${d+bulge},${e} ${d},${hw}" fill="none" ${FACE} stroke-linejoin="round"/>`;break}
-    case 'led':{F=6;s=`<rect x="-9" y="-5" width="8" height="10" rx="2" fill="${col}"/><rect x="0" y="${-hw}" width="7" height="${hw*2}" rx="3" fill="#fff" stroke="${col}" ${L}/><line x1="7" y1="${-hw+3}" x2="7" y2="${hw-3}" ${FACE}/>`;break}
-    case 'kino':{F=12;s=`<rect x="-9" y="-5" width="8" height="10" rx="2" fill="${col}"/><rect x="0" y="${-hw}" width="12" height="${hw*2}" rx="3" fill="#fff" stroke="${col}" ${L}/>`;
-      for(let y=-hw+6;y<=hw-6;y+=Math.max(6,(hw*2-12)/3))s+=`<line x1="3" y1="${y}" x2="9" y2="${y}" stroke="${col}" stroke-width="1.4" opacity=".55"/>`;s+=`<line x1="12" y1="${-hw+2}" x2="12" y2="${hw-2}" ${FACE}/>`;break}
-    case 'umb':{const a=sw*0.3;F=a;s=head(col)+`<path d="M${a} ${-hw}Q${-a*0.15} 0 ${a} ${hw}Z" fill="#fff" stroke="none"/><path d="M${a} ${-hw}Q${-a*0.15} 0 ${a} ${hw}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linecap="round"/>`;
-      for(const r of [-0.6,-0.2,0.2,0.6])s+=`<line x1="${a*0.2}" y1="0" x2="${a}" y2="${hw*r}" stroke="${col}" stroke-width="1" opacity=".5"/>`;s+=`<line x1="-2" y1="0" x2="${a}" y2="0" stroke="${col}" stroke-width="1.6"/><line x1="${a}" y1="${-hw}" x2="${a}" y2="${hw}" ${FACE}/>`;break}
-    case 'para':{const a=sw*0.42;F=a;s=head(col)+`<path d="M${a} ${-hw}Q${-a*0.55} 0 ${a} ${hw}Z" fill="#fff" stroke="none"/><path d="M${a} ${-hw}Q${-a*0.55} 0 ${a} ${hw}" fill="none" stroke="${col}" stroke-width="3" stroke-linecap="round"/>`;
-      for(const r of [-0.55,0,0.55])s+=`<line x1="${a*0.05}" y1="0" x2="${a}" y2="${hw*r}" stroke="${col}" stroke-width="1" opacity=".4"/>`;s+=`<line x1="${a}" y1="${-hw}" x2="${a}" y2="${hw}" stroke="${col}" stroke-width="1.4" stroke-dasharray="2 4" opacity=".6"/>`;break}
-    case 'dish':{const c=hw*0.5;F=c;s=head(col)+`<path d="M${c} ${-hw}A${hw} ${hw} 0 0 0 ${c} ${hw}Z" fill="#fff" stroke="${col}" ${L}/><line x1="${c}" y1="${-hw}" x2="${c}" y2="${hw}" ${FACE}/><rect x="${c-hw*0.42}" y="${-hw*0.22}" width="4" height="${hw*0.44}" rx="2" fill="${col}"/>`;break}
-    case 'refl':{const Lr=Math.max(14,sw*0.8),H=Math.max(10,sw*0.6);F=Lr;s=head(col)+`<path d="M-2 -7L${Lr} ${-H}V${H}L-2 7Z" fill="#fff" stroke="${col}" ${L}/><line x1="${Lr}" y1="${-H}" x2="${Lr}" y2="${H}" ${FACE}/>`;break}
-    case 'clip':{F=6;s=`<rect x="-14" y="-6" width="12" height="12" rx="3" fill="${col}"/><rect x="-2" y="-8" width="8" height="16" rx="2.5" fill="#fff" stroke="${col}" ${L}/><line x1="6" y1="-6" x2="6" y2="6" ${FACE}/>`;break}
-    case 'fres':{F=4;s=`<rect x="-26" y="-12" width="30" height="24" rx="5" fill="${col}"/><line x1="4" y1="-10" x2="4" y2="10" ${FACE}/><path d="M5 -12L17 -21M5 12L17 21" stroke="${col}" stroke-width="2.5" stroke-linecap="round"/>`;break}
-    case 'bare':{F=0;b=icon?'':`<circle r="46" fill="url(#glow${GK})"/>`;s=head(col)+`<circle cx="5" cy="0" r="7" fill="#fff" stroke="${col}" ${L}/><circle cx="5" cy="0" r="2.2" fill="${col}"/>`;break}
-    case 'sat':{const a=sw*0.36;F=a;s=`<path d="M${a} ${-hw}Q${-a*0.5} 0 ${a} ${hw}" fill="#fff" stroke="${col}" stroke-width="3" stroke-linecap="round"/><line x1="0" y1="0" x2="${a*0.5}" y2="0" stroke="${col}" stroke-width="1.6"/><g transform="translate(${a*0.62} 0) rotate(180)">${head(col,0.8)}</g><line x1="${a}" y1="${-hw}" x2="${a}" y2="${hw}" stroke="${col}" stroke-width="1.4" stroke-dasharray="2 4" opacity=".6"/>`;break}
-    case 'ring':{F=hw;s=`<circle r="${hw}" fill="none" stroke="${col}" stroke-width="6"/><circle r="${hw}" fill="none" stroke="#fff" stroke-width="1.4"/>`;break}
-    case 'ball':{F=0;b=icon?'':`<circle r="${hw+36}" fill="url(#glow${GK})"/>`;s=`<circle r="${hw}" fill="#fff" stroke="${col}" ${L}/><ellipse rx="${hw}" ry="${hw*0.3}" fill="none" stroke="${col}" stroke-width="1" opacity=".4"/><ellipse rx="${hw*0.3}" ry="${hw}" fill="none" stroke="${col}" stroke-width="1" opacity=".4"/>`;break}
+    case 'box':case 'strip':case 'octa':{const d=t.m==='strip'?(icon?12:22):Math.min(44,Math.max(20,sw*0.34));F=d;
+      if(t.m==='octa'){const e=hw*0.42,bu=hw*0.12;F=d+bu;s=head(col)+`<path d="M-6 -8L${d} ${-hw}L${d+bu} ${-e}L${d+bu} ${e}L${d} ${hw}L-6 8Z" ${O}/><polyline points="${d},${-hw} ${d+bu},${-e} ${d+bu},${e} ${d},${hw}" fill="none" ${FACE} stroke-linejoin="round"/>`}
+      else s=head(col)+`<path d="M-6 -8L${d} ${-hw}V${hw}L-6 8Z" ${O}/><line x1="${d}" y1="${-hw}" x2="${d}" y2="${hw}" ${FACE}/>`;
+      s+=`<line x1="${d*0.55}" y1="${-hw*0.55}" x2="${d*0.55}" y2="${hw*0.55}" stroke="${col}" ${DW} stroke-dasharray="2 3" opacity=".6"/>`;break}
+    case 'umb':{const d=hw*0.42;F=d;s=head(col)+bowl(d,[-0.66,-0.33,0,0.33,0.66])+`<line x1="${d}" y1="${-hw}" x2="${d}" y2="${hw}" ${FACE}/>`;break}
+    case 'para':{const d=hw*0.85;F=d;s=head(col)+bowl(d,[-0.75,-0.45,-0.15,0.15,0.45,0.75])+`<line x1="0" y1="0" x2="${d*0.6}" y2="0" stroke="${col}" stroke-width="1.6"/><line x1="${d}" y1="${-hw}" x2="${d}" y2="${hw}" stroke="${col}" stroke-width="1.6" stroke-dasharray="3 3"/>`;break}
+    case 'sat':{const d=hw*0.85;F=d;s=bowl(d,[-0.5,0,0.5])+`<line x1="0" y1="0" x2="${d*0.45}" y2="0" stroke="${col}" stroke-width="1.6"/><g transform="translate(${d*0.5} 0) rotate(180) scale(.8)">${head(col)}</g><line x1="${d}" y1="${-hw}" x2="${d}" y2="${hw}" stroke="${col}" stroke-width="1.6" stroke-dasharray="3 3"/>`;break}
+    case 'dish':{const d=hw*0.5;F=d;s=head(col)+`<path d="M${d} ${-hw}A${d} ${hw} 0 0 0 ${d} ${hw}Z" ${O}/><line x1="${d}" y1="${-hw}" x2="${d}" y2="${hw}" ${FACE}/><line x1="${d*0.45}" y1="${-hw*0.25}" x2="${d*0.45}" y2="${hw*0.25}" stroke="${col}" stroke-width="2.5" stroke-linecap="round"/>`;break}
+    case 'refl':{const L=Math.max(12,sw*0.75),H=Math.max(9,sw*0.55);F=L;s=head(col)+`<path d="M-6 -8L${L} ${-H}V${H}L-6 8Z" ${O}/><line x1="${L}" y1="${-H}" x2="${L}" y2="${H}" ${FACE}/>`;break}
+    case 'clip':{F=5;s=`<rect x="-13" y="-6" width="11" height="12" rx="2" ${O}/><rect x="-2" y="-7.5" width="7" height="15" rx="2" ${O}/><line x1="5" y1="-5.5" x2="5" y2="5.5" ${FACE}/>`;break}
+    case 'led':{F=6;s=`<rect x="-8" y="-4" width="8" height="8" rx="2" ${O}/><rect x="0" y="${-hw}" width="6" height="${hw*2}" rx="2" ${O}/><line x1="6" y1="${-hw+2}" x2="6" y2="${hw-2}" ${FACE}/>`;break}
+    case 'kino':{F=11;s=`<rect x="-8" y="-4" width="8" height="8" rx="2" ${O}/><rect x="0" y="${-hw}" width="11" height="${hw*2}" rx="2" ${O}/>`;
+      for(let y=-hw+6;y<=hw-6;y+=Math.max(6,(hw*2-12)/3))s+=`<line x1="3" y1="${y}" x2="8" y2="${y}" stroke="${col}" ${DW}/>`;s+=`<line x1="11" y1="${-hw+2}" x2="11" y2="${hw-2}" ${FACE}/>`;break}
+    case 'fres':{F=4;s=`<rect x="-24" y="-11" width="28" height="22" rx="4" ${O}/><line x1="-6" y1="-11" x2="-6" y2="11" stroke="${col}" ${DW}/><line x1="4" y1="-9" x2="4" y2="9" ${FACE}/><path d="M5 -11L16 -19M5 11L16 19" stroke="${col}" stroke-width="2" stroke-linecap="round"/>`;break}
+    case 'bare':{F=0;b=icon?'':(SHOWBEAM?`<circle r="44" fill="url(#glow${GK})"/>`:'');s=head(col)+`<circle cx="4" cy="0" r="7" ${O}/><path d="M4 -11V-15M4 11V15M15 0H19M12 -8L15 -11M12 8L15 11" stroke="${col}" ${DW}/>`;break}
+    case 'ring':{F=hw;s=`<circle r="${hw}" fill="none" stroke="${col}" stroke-width="2"/><circle r="${Math.max(2,hw-5)}" fill="none" stroke="${col}" stroke-width="2"/>`;break}
+    case 'ball':{F=0;b=icon?'':(SHOWBEAM?`<circle r="${hw+34}" fill="url(#glow${GK})"/>`:'');s=`<circle r="${hw}" ${O}/><ellipse rx="${hw}" ry="${hw*0.3}" fill="none" stroke="${col}" ${DW} opacity=".55"/><ellipse rx="${hw*0.3}" ry="${hw}" fill="none" stroke="${col}" ${DW} opacity=".55"/>`;break}
     }
-    if(!icon&&!SHOWBEAM&&t.m!=='ball'&&t.m!=='bare'){const ax=F+(t.m==='ring'?6:9);b=`<path d="M${ax} -6L${ax+12} 0L${ax} 6Z" fill="${col}"/>`}
-    if(!icon&&SHOWBEAM&&BEAM[t.m]){const h0=t.m==='ring'?hw*0.5:Math.min(hw*0.9,Math.max(6,hw*0.85)),sp=BEAM[t.m]*(view==='side'?0.6:1);b=`<path d="M${F} ${-h0}L${F+len} ${-h0-sp}L${F+len} ${h0+sp}L${F} ${h0}Z" fill="url(#bm${GK})"/>`}
+    if(!icon&&!SHOWBEAM&&t.m!=='ball'&&t.m!=='bare'){const ax=F+(t.m==='ring'?6:8);b=`<path d="M${ax} -5L${ax+11} 0L${ax} 5Z" fill="${col}"/>`}
+    if(!icon&&SHOWBEAM&&BEAM[t.m]){const h0=t.m==='ring'?hw*0.5:Math.max(6,hw*0.85),sp=BEAM[t.m]*(view==='side'?0.6:1);b=`<path d="M${F} ${-h0}L${F+len} ${-h0-sp}L${F+len} ${h0+sp}L${F} ${h0}Z" fill="url(#bm${GK})"/>`}
   }
   if(t.k==='panel'){const hw=w/2;
-    if(it.type==='scrim')s=`<rect x="-4" y="${-hw}" width="8" height="${w}" rx="3" fill="#eef5fb"/><rect x="-4" y="${-hw}" width="8" height="${w}" rx="3" fill="url(#hatch${GK})" stroke="${col}" ${L}/>`;
-    else if(it.type==='flag')s=`<rect x="-4" y="${-hw}" width="8" height="${w}" rx="3" fill="${col}" stroke="${col}" ${L}/>`;
-    else s=`<rect x="-4" y="${-hw}" width="8" height="${w}" rx="3" fill="#fff" stroke="${col}" ${L}/>`;
-    s+=`<circle cx="-9" cy="0" r="3" fill="${col}"/>`}
+    if(it.type==='scrim')s=`<rect x="-3.5" y="${-hw}" width="7" height="${w}" rx="2" fill="#fff"/><rect x="-3.5" y="${-hw}" width="7" height="${w}" rx="2" fill="url(#hatch${GK})" stroke="${col}" ${LW}/>`;
+    else if(it.type==='flag')s=`<rect x="-3.5" y="${-hw}" width="7" height="${w}" rx="2" fill="${col}"/>`;
+    else s=`<rect x="-3.5" y="${-hw}" width="7" height="${w}" rx="2" ${O}/>`;
+    s+=`<circle cx="-8" cy="0" r="2.5" fill="#fff" stroke="${col}" stroke-width="1.5"/>`}
   return b+s;
 }
 function clothTop(w,col){let d=`M${-w/2} 0`;const n=Math.max(4,Math.round(w/12));for(let i=1;i<=n;i++){const x=-w/2+i*w/n;d+=`Q${x-w/n/2} ${i%2?-7:7} ${x} 0`}
@@ -719,9 +721,11 @@ function palIcon(k){const t=T[k],c='currentColor';let g='',vb='-30 -28 76 56';
   else if(t.k==='pillar')g=`<rect x="-6" y="-14" width="28" height="28" fill="none" stroke="${c}" stroke-width="2.5"/><path d="M-6 -4L4 -14M-6 8L16 -14M2 14L22 -6M14 14L22 6" stroke="${c}" stroke-width="1.2"/>`;
   return `<svg class="pi" viewBox="${vb}" aria-hidden="true">${g}</svg>`}
 function lensMM(){const m=String(cur.lens||'').match(/(\d+(?:\.\d+)?)\s*(?:-|〜|~)?\s*(?:\d+)?\s*mm/i)||String(cur.lens||'').match(/(\d+(?:\.\d+)?)/);const f=m?+m[1]:50;return f>=8&&f<=1200?f:50}
-function camSym(view,col){if(view==='icon')return `<g transform="translate(-6 0)"><rect x="-18" y="-13" width="26" height="26" rx="5" fill="${col}"/><rect x="7" y="-9" width="16" height="18" rx="3" fill="${col}"/></g>`;const f=lensMM(),half=Math.atan((view==='top'?18:12)/f),L=view==='top'?200:150,dx=Math.cos(half)*L,dy=Math.sin(half)*L;
-  return `<path d="M22 0L${22+dx} ${-dy}L${22+dx} ${dy}Z" fill="${C.pkey}" opacity=".06"/><path d="M22 0L${22+dx} ${-dy}M22 0L${22+dx} ${dy}" stroke="${col}" stroke-width="1.2" stroke-dasharray="5 5" opacity=".5"/>`+
-  `<rect x="-18" y="-13" width="26" height="26" rx="5" fill="${col}"/>${view==='side'?`<path d="M-10 -13L-7 -19H1L4 -13Z" fill="${col}"/>`:`<rect x="-15" y="-17" width="8" height="5" rx="1.5" fill="${col}"/>`}<rect x="7" y="-9" width="16" height="18" rx="3" fill="${col}"/><line x1="15" y1="-9" x2="15" y2="9" stroke="#fff" stroke-width="1.5" opacity=".7"/>`}
+function camSym(view,col){const O=`fill="#fff" stroke="${col}" ${LW}`;
+  const body=`<rect x="-17" y="-12" width="24" height="24" rx="4" ${O}/>${view==='side'?`<path d="M-10 -12L-7 -17H0L3 -12" ${O}/>`:`<rect x="-14" y="-16" width="8" height="4" rx="1.5" ${O}/>`}<rect x="7" y="-8" width="15" height="16" rx="2.5" ${O}/><line x1="14" y1="-8" x2="14" y2="8" stroke="${col}" ${DW}/>`;
+  if(view==='icon')return `<g transform="translate(-6 0)">${body}</g>`;
+  const f=lensMM(),half=Math.atan((view==='top'?18:12)/f),L=view==='top'?200:150,dx=Math.cos(half)*L,dy=Math.sin(half)*L;
+  return `<path d="M22 0L${22+dx} ${-dy}L${22+dx} ${dy}Z" fill="${C.pkey}" opacity=".05"/><path d="M22 0L${22+dx} ${-dy}M22 0L${22+dx} ${dy}" stroke="${col}" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>`+body}
 function aimAngles(it){const p=subj();if(!p)return {rot:it.rot??-90,tilt:it.tilt??0};
   const top=Math.atan2(-(p.y-it.y),p.x-it.x)/rad,side=Math.atan2(-((p.h-12)-it.h),p.y-it.y)/rad;return {rot:Math.round(top),tilt:Math.round(side)}}
 const ROTK=['light','panel','cam','back','win','door','slide','vflat','cloth'];
@@ -747,36 +751,36 @@ function renderView(view,thumb){
   for(const it of items){
     norm(it);const t=T[it.type],[X,Y]=P(it),on=!thumb&&it.id===sel,col=on?C.pkey:'#222',w=it.w||t.w;let g='';
     const ang=view==='top'?it.rot:it.tilt;
-    if(view==='side'&&['light','panel','cam'].includes(t.k))g+=`<g stroke="#8a8a8a" stroke-width="2.2" stroke-linecap="round" fill="none"><line x1="${X}" y1="${Y+10}" x2="${X}" y2="${HMAX-18}"/><path d="M${X-17} ${HMAX}L${X} ${HMAX-18}L${X+17} ${HMAX}M${X} ${HMAX-18}V${HMAX}"/></g>`;
+    if(view==='side'&&['light','panel','cam'].includes(t.k))g+=`<g stroke="#7a7a7a" stroke-width="1.4" stroke-linecap="round" fill="none"><line x1="${X}" y1="${Y+10}" x2="${X}" y2="${HMAX-18}"/><path d="M${X-17} ${HMAX}L${X} ${HMAX-18}L${X+17} ${HMAX}M${X} ${HMAX-18}V${HMAX}"/></g>`;
     if(lightish(it))g+=`<g transform="translate(${X} ${Y}) rotate(${ang})">${symbol(it,view,col)}</g>`;
     else if(t.k==='cam')g+=`<g transform="translate(${X} ${Y}) rotate(${ang})">${camSym(view,col)}</g>`;
-    else if(t.k==='person'){if(view==='top'){const cm=cur.items.find(i=>i.type==='camera'),fa=cm?Math.atan2(-(cm.y-it.y),cm.x-it.x)/rad:90;
-      g+=`<g transform="translate(${X} ${Y}) rotate(${fa})"><ellipse rx="13" ry="27" fill="#fff" stroke="${col}" ${SW}/><circle r="11" fill="${col}"/><path d="M10 -4L16 0L10 4Z" fill="${col}"/></g>`}
-    else{const fl=HMAX,top=Y,tb=top+20+(fl-top)*0.42;g+=`<g fill="${col}"><circle cx="${X}" cy="${top+2}" r="12"/><rect x="${X-13}" y="${top+18}" width="26" height="${Math.max(12,tb-top-18)}" rx="10"/></g><path d="M${X-6} ${tb-4}V${fl}M${X+6} ${tb-4}V${fl}" stroke="${col}" stroke-width="9" stroke-linecap="round"/>`}}
-    else if(t.k==='pillar')g+=view==='top'?`<rect x="${X-w/2}" y="${Y-w/2}" width="${w}" height="${w}" fill="#888" stroke="${col}" stroke-width="2"/>`:`<rect x="${X-w/2}" y="${Y}" width="${w}" height="${HMAX-Y}" fill="#ccc" stroke="${col}" stroke-width="2"/>`;
+    else if(t.k==='person'){const O=`fill="#fff" stroke="${col}" ${LW}`;if(view==='top'){const cm=cur.items.find(i=>i.type==='camera'),fa=cm?Math.atan2(-(cm.y-it.y),cm.x-it.x)/rad:90;
+      g+=`<g transform="translate(${X} ${Y}) rotate(${fa})"><ellipse rx="12" ry="26" ${O}/><circle r="10" ${O}/><path d="M8 -5L17 0L8 5" ${O}/></g>`}
+    else{const fl=HMAX,top=Y,tb=top+20+(fl-top)*0.42;g+=`<circle cx="${X}" cy="${top+2}" r="11" ${O}/><rect x="${X-12}" y="${top+17}" width="24" height="${Math.max(12,tb-top-17)}" rx="9" ${O}/><path d="M${X-5} ${tb}V${fl}M${X+5} ${tb}V${fl}" stroke="${col}" stroke-width="2" stroke-linecap="round"/>`}}
+    else if(t.k==='pillar')g+=view==='top'?`<rect x="${X-w/2}" y="${Y-w/2}" width="${w}" height="${w}" fill="url(#hatch${GK})" stroke="${col}" stroke-width="2"/>`:`<rect x="${X-w/2}" y="${Y}" width="${w}" height="${HMAX-Y}" fill="url(#hatch${GK})" stroke="${col}" stroke-width="2"/>`;
     else if(view==='top'){
       let sh='';
-      if(t.k==='back')sh=`<rect x="${-w/2}" y="-6" width="${w}" height="12" rx="6" fill="#d9d9d9" stroke="${col}" ${SW}/><circle cx="${-w/2-6}" cy="0" r="4.5" fill="${col}"/><circle cx="${w/2+6}" cy="0" r="4.5" fill="${col}"/>`;
+      if(t.k==='back')sh=`<rect x="${-w/2}" y="-6" width="${w}" height="12" rx="6" fill="#fff" stroke="${col}" ${SW}/><circle cx="${-w/2-7}" cy="0" r="4" fill="#fff" stroke="${col}" stroke-width="1.5"/><circle cx="${w/2+7}" cy="0" r="4" fill="#fff" stroke="${col}" stroke-width="1.5"/>`;
       if(t.k==='win')sh=`<rect x="${-w/2-4}" y="-7" width="${w+8}" height="14" fill="#fff" stroke="${col}" ${SW}/><line x1="${-w/2}" y1="-1.8" x2="${w/2}" y2="-1.8" stroke="#6ea8dc" stroke-width="1.6"/><line x1="${-w/2}" y1="1.8" x2="${w/2}" y2="1.8" stroke="#6ea8dc" stroke-width="1.6"/>`;
       if(t.k==='door')sh=`<line x1="${-w/2}" y1="0" x2="${-w/2}" y2="${-w}" stroke="${col}" stroke-width="4"/><path d="M${-w/2} ${-w}A${w} ${w} 0 0 1 ${w/2} 0" fill="none" stroke="${col}" stroke-width="1.5" stroke-dasharray="5 4"/><rect x="${-w/2}" y="-3" width="${w}" height="6" fill="#fff" stroke="${col}"/>`;
-      if(t.k==='slide')sh=`<rect x="${-w/2}" y="-8" width="${w/2+6}" height="7" fill="#e8dcc8" stroke="${col}" stroke-width="2"/><rect x="-6" y="1" width="${w/2+6}" height="7" fill="#e8dcc8" stroke="${col}" stroke-width="2"/>`;
+      if(t.k==='slide')sh=`<rect x="${-w/2}" y="-8" width="${w/2+6}" height="7" fill="#fff" stroke="${col}" stroke-width="2"/><rect x="-6" y="1" width="${w/2+6}" height="7" fill="#fff" stroke="${col}" stroke-width="2"/>`;
       if(t.k==='cloth')sh=clothTop(w,col);
       if(t.k==='vflat')sh=vflatTop(w,col,t.c);
       g+=`<g transform="translate(${X} ${Y}) rotate(${ang})">${sh}</g>`;
     }else{
-      if(t.k==='back'){const sx=X-Math.min(50,(HMAX-Y)*0.3);g+=`<path d="M${X} ${Y+6}V${HMAX-40}Q${X} ${HMAX} ${sx} ${HMAX}" fill="none" stroke="#c9c9c9" stroke-width="7" stroke-linecap="round"/><line x1="${X+10}" y1="${Y}" x2="${X+10}" y2="${HMAX}" stroke="#8a8a8a" stroke-width="2.2"/><circle cx="${X}" cy="${Y}" r="8" fill="#e4e4e4" stroke="${col}" ${SW}/>`}
+      if(t.k==='back'){const sx=X-Math.min(50,(HMAX-Y)*0.3);g+=`<path d="M${X} ${Y+6}V${HMAX-40}Q${X} ${HMAX} ${sx} ${HMAX}" fill="none" stroke="${col}" stroke-width="2" stroke-linecap="round"/><line x1="${X+10}" y1="${Y}" x2="${X+10}" y2="${HMAX}" stroke="#7a7a7a" stroke-width="1.4"/><circle cx="${X}" cy="${Y}" r="8" fill="#fff" stroke="${col}" ${SW}/>`}
       const ww=Math.max(14,w*Math.abs(Math.sin((it.rot||0)*rad))),x0=X-ww/2,face=ww>30;
-      if(t.k==='win'){const wh=Math.min(140,HMAX-Y);g+=`<rect x="${x0}" y="${Y}" width="${ww}" height="${wh}" fill="#e3f0fb" stroke="${col}" ${SW}/>${face?`<line x1="${X}" y1="${Y}" x2="${X}" y2="${Y+wh}" stroke="${col}" stroke-width="2"/><path d="M${x0+8} ${Y+wh*0.55}L${x0+ww*0.3} ${Y+12}" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`:`<line x1="${x0}" y1="${Y+wh/2}" x2="${x0+ww}" y2="${Y+wh/2}" stroke="${col}" stroke-width="1.5"/>`}<line x1="${x0-5}" y1="${Y+wh}" x2="${x0+ww+5}" y2="${Y+wh}" stroke="${col}" stroke-width="3" stroke-linecap="round"/>`}
+      if(t.k==='win'){const wh=Math.min(140,HMAX-Y);g+=`<rect x="${x0}" y="${Y}" width="${ww}" height="${wh}" fill="#fff" stroke="${col}" ${SW}/>${face?`<line x1="${X}" y1="${Y}" x2="${X}" y2="${Y+wh}" stroke="${col}" stroke-width="2"/><path d="M${x0+8} ${Y+wh*0.55}L${x0+ww*0.3} ${Y+12}" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`:`<line x1="${x0}" y1="${Y+wh/2}" x2="${x0+ww}" y2="${Y+wh/2}" stroke="${col}" stroke-width="1.5"/>`}<line x1="${x0-5}" y1="${Y+wh}" x2="${x0+ww+5}" y2="${Y+wh}" stroke="${col}" stroke-width="3" stroke-linecap="round"/>`}
       if(t.k==='door')g+=`<rect x="${x0}" y="${Y}" width="${ww}" height="${HMAX-Y}" fill="#fff" stroke="${col}" ${SW}/>${face?`<circle cx="${x0+ww-9}" cy="${Y+(HMAX-Y)*0.52}" r="3.5" fill="${col}"/>`:''}`;
       if(t.k==='cloth'){const cw=Math.max(10,w*Math.abs(Math.sin((it.rot||0)*rad))),c0=X-cw/2;let f='';for(let x=c0+8;x<c0+cw-4;x+=10)f+=`M${x} ${Y+4}V${HMAX}`;
         g+=`<g opacity="${on?.9:.3}"><rect x="${c0}" y="${Y}" width="${cw}" height="${HMAX-Y}" fill="#3a3a3a" stroke="${col}" ${SW}/><path d="${f}" stroke="#666" stroke-width="1.5"/><line x1="${c0-4}" y1="${Y}" x2="${c0+cw+4}" y2="${Y}" stroke="${col}" stroke-width="3" stroke-linecap="round"/></g>`}
       if(t.k==='vflat')g+=`<rect x="${X-5}" y="${Y}" width="10" height="${HMAX-Y}" rx="2" fill="${T[it.type].c==='#222'?col:'#fff'}" stroke="${col}" ${SW}/>`;
-      if(t.k==='slide')g+=`<rect x="${x0}" y="${Y}" width="${ww}" height="${HMAX-Y}" fill="#efe5d3" stroke="${col}" ${SW}/>${face?`<line x1="${X}" y1="${Y}" x2="${X}" y2="${HMAX}" stroke="${col}" stroke-width="2"/>`:''}`;
+      if(t.k==='slide')g+=`<rect x="${x0}" y="${Y}" width="${ww}" height="${HMAX-Y}" fill="#fff" stroke="${col}" ${SW}/>${face?`<line x1="${X}" y1="${Y}" x2="${X}" y2="${HMAX}" stroke="${col}" stroke-width="2"/>`:''}`;
       if(ROOM.includes(t.k)&&!on)g=`<g opacity=".42">${g}</g>`;
     }
     if(!thumb){const nm=it.role&&it.role!=='—'?it.role:t.n,lab=view==='top'?nm:`${nm} ${Math.round(it.h)}`,bg=view==='side'&&ROOM.includes(t.k)&&!on,lx=Math.max(lab.length*9+6,Math.min(W-lab.length*9-6,X));
       const sub=view==='top'&&t.k==='light'?[it.name,it.power].filter(Boolean).join(' '):'';if(sub)g+=`<text x="${lx}" y="${Math.max(36,Y-48)}" font-size="13" text-anchor="middle" fill="#666" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round">${esc(sub)}</text>`;
-      g+=`<text x="${lx}" y="${Math.max(20,Y+(view==='top'?-28:-20))}" font-size="${bg?15:18}" text-anchor="middle" fill="${bg?'#8a8a8a':col}" font-weight="${on?700:600}" letter-spacing=".5" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">${esc(lab)}</text>`}
+      g+=`<text x="${lx}" y="${Math.max(20,Y+(view==='top'?-28:-20))}" font-size="${bg?14:16}" text-anchor="middle" fill="${bg?'#8a8a8a':col}" font-weight="${on?700:500}" letter-spacing=".5" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">${esc(lab)}</text>`}
     o+=`<g data-id="${it.id}" style="cursor:grab">${g}${thumb?'':`<circle cx="${X}" cy="${Y}" r="32" fill="transparent"/>`}</g>`;
     if(on&&ROTK.includes(t.k)&&!(view==='side'&&['back','win','door','slide','vflat','cloth'].includes(t.k))){
       const R=view==='top'?80:64,hx=X+R*Math.cos(ang*rad),hy=Y+R*Math.sin(ang*rad);
