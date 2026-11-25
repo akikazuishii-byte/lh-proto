@@ -700,7 +700,9 @@ function renderView(view,thumb){
     if(d.t==='text')continue;
     const pts=d.pts.map(q=>q.join(',')).join(' ');
     o+=`<g data-did="${d.id}"><polyline points="${pts}" fill="none" stroke="transparent" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="${d.w||4}" stroke-linecap="round" stroke-linejoin="round"/></g>`}
-  const items=[...cur.items].sort((a,b)=>(a.id===sel)-(b.id===sel));
+  const ROOM=['win','door','slide','pillar','back'];
+  const lay=it=>view==='side'?(ROOM.includes(T[it.type].k)?0:1):0;
+  const items=[...cur.items].sort((a,b)=>(a.id===sel)-(b.id===sel)||lay(a)-lay(b)||(view==='side'?a.x-b.x:0));
   for(const it of items){
     norm(it);const t=T[it.type],[X,Y]=P(it),on=!thumb&&it.id===sel,col=on?C.pkey:'#222',w=it.w||t.w;let g='';
     const ang=view==='top'?it.rot:it.tilt;
@@ -720,11 +722,14 @@ function renderView(view,thumb){
       g+=`<g transform="translate(${X} ${Y}) rotate(${ang})">${sh}</g>`;
     }else{
       if(t.k==='back'){const sx=X-Math.min(50,(HMAX-Y)*0.3);g+=`<path d="M${X} ${Y+6}V${HMAX-40}Q${X} ${HMAX} ${sx} ${HMAX}" fill="none" stroke="#c9c9c9" stroke-width="7" stroke-linecap="round"/><line x1="${X+10}" y1="${Y}" x2="${X+10}" y2="${HMAX}" stroke="#8a8a8a" stroke-width="2.2"/><circle cx="${X}" cy="${Y}" r="8" fill="#e4e4e4" stroke="${col}" ${SW}/>`}
-      if(t.k==='win'){const wh=Math.min(140,HMAX-Y);g+=`<rect x="${X-7}" y="${Y}" width="14" height="${wh}" fill="#e3f0fb" stroke="${col}" ${SW}/><line x1="${X-7}" y1="${Y+wh/2}" x2="${X+7}" y2="${Y+wh/2}" stroke="${col}" stroke-width="1.5"/><line x1="${X-11}" y1="${Y+wh}" x2="${X+11}" y2="${Y+wh}" stroke="${col}" stroke-width="3" stroke-linecap="round"/>`}
-      if(t.k==='door'||t.k==='slide')g+=`<rect x="${X-6}" y="${Y}" width="12" height="${HMAX-Y}" fill="${t.k==='door'?'#fff':'#e8dcc8'}" stroke="${col}" stroke-width="2"/>`;
+      const ww=Math.max(14,w*Math.abs(Math.sin((it.rot||0)*rad))),x0=X-ww/2,face=ww>30;
+      if(t.k==='win'){const wh=Math.min(140,HMAX-Y);g+=`<rect x="${x0}" y="${Y}" width="${ww}" height="${wh}" fill="#e3f0fb" stroke="${col}" ${SW}/>${face?`<line x1="${X}" y1="${Y}" x2="${X}" y2="${Y+wh}" stroke="${col}" stroke-width="2"/><path d="M${x0+8} ${Y+wh*0.55}L${x0+ww*0.3} ${Y+12}" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`:`<line x1="${x0}" y1="${Y+wh/2}" x2="${x0+ww}" y2="${Y+wh/2}" stroke="${col}" stroke-width="1.5"/>`}<line x1="${x0-5}" y1="${Y+wh}" x2="${x0+ww+5}" y2="${Y+wh}" stroke="${col}" stroke-width="3" stroke-linecap="round"/>`}
+      if(t.k==='door')g+=`<rect x="${x0}" y="${Y}" width="${ww}" height="${HMAX-Y}" fill="#fff" stroke="${col}" ${SW}/>${face?`<circle cx="${x0+ww-9}" cy="${Y+(HMAX-Y)*0.52}" r="3.5" fill="${col}"/>`:''}`;
+      if(t.k==='slide')g+=`<rect x="${x0}" y="${Y}" width="${ww}" height="${HMAX-Y}" fill="#efe5d3" stroke="${col}" ${SW}/>${face?`<line x1="${X}" y1="${Y}" x2="${X}" y2="${HMAX}" stroke="${col}" stroke-width="2"/>`:''}`;
+      if(ROOM.includes(t.k)&&!on)g=`<g opacity=".42">${g}</g>`;
     }
-    if(!thumb){const nm=it.role&&it.role!=='—'?it.role:t.n,lab=view==='top'?nm:`${nm} ${Math.round(it.h)}`;
-      g+=`<text x="${X}" y="${Math.max(20,Y+(view==='top'?-28:-20))}" font-size="18" text-anchor="middle" fill="${col}" font-weight="${on?700:600}" letter-spacing=".5" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">${esc(lab)}</text>`}
+    if(!thumb){const nm=it.role&&it.role!=='—'?it.role:t.n,lab=view==='top'?nm:`${nm} ${Math.round(it.h)}`,bg=view==='side'&&ROOM.includes(t.k)&&!on,lx=Math.max(lab.length*9+6,Math.min(W-lab.length*9-6,X));
+      g+=`<text x="${lx}" y="${Math.max(20,Y+(view==='top'?-28:-20))}" font-size="${bg?15:18}" text-anchor="middle" fill="${bg?'#8a8a8a':col}" font-weight="${on?700:600}" letter-spacing=".5" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">${esc(lab)}</text>`}
     o+=`<g data-id="${it.id}" style="cursor:grab">${g}${thumb?'':`<circle cx="${X}" cy="${Y}" r="32" fill="transparent"/>`}</g>`;
     if(on&&ROTK.includes(t.k)&&!(view==='side'&&['back','win','door','slide'].includes(t.k))){
       const R=view==='top'?80:64,hx=X+R*Math.cos(ang*rad),hy=Y+R*Math.sin(ang*rad);
